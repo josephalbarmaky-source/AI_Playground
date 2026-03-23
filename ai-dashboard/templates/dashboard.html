@@ -1,0 +1,362 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - AI Project Manager{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Stats Cards -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">📁</div>
+            <div class="stat-info">
+                <span class="stat-value" id="totalProjects">0</span>
+                <span class="stat-label">Total Projects</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🚀</div>
+            <div class="stat-info">
+                <span class="stat-value" id="inProgressProjects">0</span>
+                <span class="stat-label">In Progress</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <span class="stat-value" id="completedTasks">0</span>
+                <span class="stat-label">Tasks Done</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-info">
+                <span class="stat-value" id="totalTasks">0</span>
+                <span class="stat-label">Total Tasks</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Projects List -->
+    <div class="section">
+        <div class="section-header">
+            <h3>Your Projects</h3>
+            <div class="filter-controls">
+                <select id="filterStatus" onchange="loadProjects()">
+                    <option value="">All Statuses</option>
+                    <option value="planning">📝 Planning</option>
+                    <option value="in_progress">🚀 In Progress</option>
+                    <option value="review">👀 Review</option>
+                    <option value="complete">✅ Complete</option>
+                    <option value="on_hold">⏸️ On Hold</option>
+                </select>
+                <select id="filterAgent" onchange="loadProjects()">
+                    <option value="">All Agents</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="projects-table-container">
+            <table class="projects-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>Agent</th>
+                        <th>Tasks</th>
+                        <th>Last Updated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="projectsTableBody">
+                    <!-- Projects will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+        
+        <div id="emptyState" class="empty-state" style="display: none;">
+            <div class="empty-icon">🎯</div>
+            <h3>No projects yet</h3>
+            <p>Click "New Project" to get started with tracking your AI agents</p>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="section">
+        <div class="section-header">
+            <h3>Recent Activity</h3>
+        </div>
+        <div class="activity-list" id="activityList">
+            <!-- Activities will be loaded here -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let agents = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadStats();
+    loadAgents();
+    loadProjects();
+    loadRecentActivity();
+});
+
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        document.getElementById('totalProjects').textContent = data.total_projects;
+        document.getElementById('inProgressProjects').textContent = data.projects_by_status.in_progress || 0;
+        document.getElementById('completedTasks').textContent = data.completed_tasks;
+        document.getElementById('totalTasks').textContent = data.total_tasks;
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
+
+async function loadAgents() {
+    try {
+        const response = await fetch('/api/agents');
+        agents = await response.json();
+        
+        // Populate agent dropdowns
+        const filterAgent = document.getElementById('filterAgent');
+        const projectAgent = document.getElementById('projectAgent');
+        
+        agents.forEach(agent => {
+            filterAgent.innerHTML += `<option value="${agent.id}">${agent.name}</option>`;
+            projectAgent.innerHTML += `<option value="${agent.id}">${agent.name}</option>`;
+        });
+    } catch (error) {
+        console.error('Failed to load agents:', error);
+    }
+}
+
+async function loadProjects() {
+    const status = document.getElementById('filterStatus').value;
+    const agentId = document.getElementById('filterAgent').value;
+    
+    let url = '/api/projects?';
+    if (status) url += `status=${status}&`;
+    if (agentId) url += `agent_id=${agentId}`;
+    
+    try {
+        const response = await fetch(url);
+        const projects = await response.json();
+        
+        const tbody = document.getElementById('projectsTableBody');
+        const emptyState = document.getElementById('emptyState');
+        
+        if (projects.length === 0) {
+            tbody.innerHTML = '';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        emptyState.style.display = 'none';
+        tbody.innerHTML = projects.map(project => `
+            <tr>
+                <td>
+                    <div class="project-name">
+                        <a href="/project/${project.id}">${project.name}</a>
+                        ${project.description ? `<span class="project-desc">${project.description.substring(0, 60)}${project.description.length > 60 ? '...' : ''}</span>` : ''}
+                    </div>
+                </td>
+                <td><span class="status-badge status-${project.status}">${getStatusLabel(project.status)}</span></td>
+                <td>
+                    ${project.agent ? `<span class="agent-badge" style="background-color: ${project.agent.avatar_color}20; color: ${project.agent.avatar_color}">${project.agent.name}</span>` : '<span class="no-agent">—</span>'}
+                </td>
+                <td>
+                    <div class="task-progress">
+                        <span>${project.completed_task_count}/${project.task_count}</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${project.task_count ? (project.completed_task_count / project.task_count * 100) : 0}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="date-cell">${formatDate(project.updated_at)}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-icon" onclick="editProject(${project.id})" title="Edit">✏️</button>
+                        <button class="btn-icon" onclick="deleteProject(${project.id})" title="Delete">🗑️</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+    }
+}
+
+async function loadRecentActivity() {
+    try {
+        const response = await fetch('/api/stats');
+        const data = await response.json();
+        
+        const activityList = document.getElementById('activityList');
+        
+        if (data.recent_activities.length === 0) {
+            activityList.innerHTML = '<div class="empty-activity">No recent activity</div>';
+            return;
+        }
+        
+        activityList.innerHTML = data.recent_activities.map(activity => `
+            <div class="activity-item">
+                <div class="activity-icon">${getActivityIcon(activity.activity_type)}</div>
+                <div class="activity-content">
+                    <p class="activity-message">${activity.message}</p>
+                    <span class="activity-time">${formatDate(activity.timestamp)}</span>
+                </div>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Failed to load activities:', error);
+    }
+}
+
+function getStatusLabel(status) {
+    const labels = {
+        'planning': '📝 Planning',
+        'in_progress': '🚀 In Progress',
+        'review': '👀 Review',
+        'complete': '✅ Complete',
+        'on_hold': '⏸️ On Hold'
+    };
+    return labels[status] || status;
+}
+
+function getActivityIcon(type) {
+    const icons = {
+        'update': '📌',
+        'task_complete': '✅',
+        'blocker': '🚫',
+        'note': '💬',
+        'status_change': '🔄'
+    };
+    return icons[type] || '📌';
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    
+    return date.toLocaleDateString();
+}
+
+// Project form handling
+document.getElementById('projectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('projectName').value,
+        description: document.getElementById('projectDescription').value,
+        status: document.getElementById('projectStatus').value,
+        agent_id: document.getElementById('projectAgent').value || null,
+        notes: document.getElementById('projectNotes').value
+    };
+    
+    try {
+        const response = await fetch('/api/projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+            closeModal('projectModal');
+            this.reset();
+            loadProjects();
+            loadStats();
+        }
+    } catch (error) {
+        console.error('Failed to create project:', error);
+    }
+});
+
+async function editProject(id) {
+    try {
+        const response = await fetch(`/api/projects/${id}`);
+        const project = await response.json();
+        
+        document.getElementById('modalTitle').textContent = 'Edit Project';
+        document.getElementById('projectName').value = project.name;
+        document.getElementById('projectDescription').value = project.description || '';
+        document.getElementById('projectStatus').value = project.status;
+        document.getElementById('projectAgent').value = project.agent_id || '';
+        document.getElementById('projectNotes').value = project.notes || '';
+        
+        // Store the ID for editing
+        this.dataset.editId = id;
+        
+        document.getElementById('projectModal').dataset.editId = id;
+        document.getElementById('projectModal').classList.add('show');
+    } catch (error) {
+        console.error('Failed to load project:', error);
+    }
+}
+
+async function deleteProject(id) {
+    if (!confirm('Are you sure you want to delete this project? This cannot be undone.')) return;
+    
+    try {
+        await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+        loadProjects();
+        loadStats();
+    } catch (error) {
+        console.error('Failed to delete project:', error);
+    }
+}
+
+// Update form submission to handle both create and edit
+document.getElementById('projectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const modal = document.getElementById('projectModal');
+    const editId = modal.dataset.editId;
+    
+    const formData = {
+        name: document.getElementById('projectName').value,
+        description: document.getElementById('projectDescription').value,
+        status: document.getElementById('projectStatus').value,
+        agent_id: document.getElementById('projectAgent').value || null,
+        notes: document.getElementById('projectNotes').value
+    };
+    
+    try {
+        if (editId) {
+            await fetch(`/api/projects/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+            delete modal.dataset.editId;
+        } else {
+            await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+        }
+        
+        closeModal('projectModal');
+        this.reset();
+        document.getElementById('modalTitle').textContent = 'Add New Project';
+        loadProjects();
+        loadStats();
+    } catch (error) {
+        console.error('Failed to save project:', error);
+    }
+});
+</script>
+{% endblock %}

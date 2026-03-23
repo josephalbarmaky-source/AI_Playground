@@ -1,0 +1,101 @@
+from flask_sqlalchemy import SQLAlchemy
+from datetime import datetime
+
+db = SQLAlchemy()
+
+
+class Agent(db.Model):
+    """AI Agent model - tracks different AI agents like Claude, GPT, etc."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    type = db.Column(db.String(50), nullable=False)  # e.g., 'claude', 'gpt4', 'gemini'
+    avatar_color = db.Column(db.String(20), default='#6366f1')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    projects = db.relationship('Project', backref='agent', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'type': self.type,
+            'avatar_color': self.avatar_color,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class Project(db.Model):
+    """Project model - tracks projects being worked on by AI agents."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    status = db.Column(db.String(50), default='planning')  # planning, in_progress, review, complete, on_hold
+    agent_id = db.Column(db.Integer, db.ForeignKey('agent.id'), nullable=True)
+    notes = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    tasks = db.relationship('Task', backref='project', lazy=True, cascade='all, delete-orphan')
+    activities = db.relationship('ActivityLog', backref='project', lazy=True, cascade='all, delete-orphan')
+    
+    def to_dict(self, include_tasks=False):
+        result = {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'status': self.status,
+            'agent_id': self.agent_id,
+            'agent': self.agent.to_dict() if self.agent else None,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'task_count': len(self.tasks),
+            'completed_task_count': len([t for t in self.tasks if t.status == 'completed'])
+        }
+        if include_tasks:
+            result['tasks'] = [t.to_dict() for t in self.tasks]
+        return result
+
+
+class Task(db.Model):
+    """Task model - subtasks within a project."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    status = db.Column(db.String(50), default='pending')  # pending, in_progress, completed
+    priority = db.Column(db.String(20), default='medium')  # low, medium, high, critical
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'project_id': self.project_id,
+            'title': self.title,
+            'description': self.description,
+            'status': self.status,
+            'priority': self.priority,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
+
+
+class ActivityLog(db.Model):
+    """Activity log - tracks all activities across projects."""
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey('project.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    activity_type = db.Column(db.String(50), default='update')  # update, task_complete, blocker, note, status_change
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'project_id': self.project_id,
+            'message': self.message,
+            'activity_type': self.activity_type,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }

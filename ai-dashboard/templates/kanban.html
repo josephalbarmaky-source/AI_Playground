@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Kanban Board - AI Project Manager{% endblock %}
+{% block page_title %}Kanban Board{% endblock %}
+
+{% block content %}
+<div class="kanban-container">
+    <div class="kanban-columns">
+        <!-- Planning Column -->
+        <div class="kanban-column" data-status="planning">
+            <div class="column-header">
+                <h3>📝 Planning</h3>
+                <span class="column-count" id="count-planning">0</span>
+            </div>
+            <div class="column-content" id="planning-cards">
+                <!-- Cards will be loaded here -->
+            </div>
+        </div>
+
+        <!-- In Progress Column -->
+        <div class="kanban-column" data-status="in_progress">
+            <div class="column-header">
+                <h3>🚀 In Progress</h3>
+                <span class="column-count" id="count-in_progress">0</span>
+            </div>
+            <div class="column-content" id="in_progress-cards">
+            </div>
+        </div>
+
+        <!-- Review Column -->
+        <div class="kanban-column" data-status="review">
+            <div class="column-header">
+                <h3>👀 Review</h3>
+                <span class="column-count" id="count-review">0</span>
+            </div>
+            <div class="column-content" id="review-cards">
+            </div>
+        </div>
+
+        <!-- Complete Column -->
+        <div class="kanban-column" data-status="complete">
+            <div class="column-header">
+                <h3>✅ Complete</h3>
+                <span class="column-count" id="count-complete">0</span>
+            </div>
+            <div class="column-content" id="complete-cards">
+            </div>
+        </div>
+
+        <!-- On Hold Column -->
+        <div class="kanban-column" data-status="on_hold">
+            <div class="column-header">
+                <h3>⏸️ On Hold</h3>
+                <span class="column-count" id="count-on_hold">0</span>
+            </div>
+            <div class="column-content" id="on_hold-cards">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadKanbanProjects();
+});
+
+async function loadKanbanProjects() {
+    try {
+        const response = await fetch('/api/projects');
+        const projects = await response.json();
+        
+        // Group projects by status
+        const statusGroups = {
+            'planning': [],
+            'in_progress': [],
+            'review': [],
+            'complete': [],
+            'on_hold': []
+        };
+        
+        projects.forEach(project => {
+            if (statusGroups[project.status]) {
+                statusGroups[project.status].push(project);
+            }
+        });
+        
+        // Render each column
+        Object.keys(statusGroups).forEach(status => {
+            const container = document.getElementById(`${status}-cards`);
+            const countEl = document.getElementById(`count-${status}`);
+            const cards = statusGroups[status];
+            
+            countEl.textContent = cards.length;
+            
+            if (cards.length === 0) {
+                container.innerHTML = '<div class="empty-column">No projects</div>';
+                return;
+            }
+            
+            container.innerHTML = cards.map(project => createKanbanCard(project)).join('');
+        });
+    } catch (error) {
+        console.error('Failed to load projects:', error);
+    }
+}
+
+function createKanbanCard(project) {
+    const agentHtml = project.agent ? `
+        <div class="card-agent" style="background-color: ${project.agent.avatar_color}20; color: ${project.agent.avatar_color}">
+            ${project.agent.name}
+        </div>
+    ` : '';
+    
+    const progress = project.task_count > 0 
+        ? Math.round((project.completed_task_count / project.task_count) * 100) 
+        : 0;
+    
+    return `
+        <div class="kanban-card" draggable="true" data-id="${project.id}">
+            <div class="card-header">
+                <h4 class="card-title">${project.name}</h4>
+                <button class="card-menu" onclick="showCardMenu(event, ${project.id})">⋮</button>
+            </div>
+            ${project.description ? `<p class="card-description">${project.description.substring(0, 80)}${project.description.length > 80 ? '...' : ''}</p>` : ''}
+            <div class="card-footer">
+                ${agentHtml}
+                <div class="card-progress">
+                    <div class="progress-text">${project.completed_task_count}/${project.task_count}</div>
+                    <div class="progress-bar-mini">
+                        <div class="progress-fill-mini" style="width: ${progress}%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-meta">
+                <span class="card-updated">${formatDate(project.updated_at)}</span>
+                <a href="/project/${project.id}" class="card-link">View →</a>
+            </div>
+        </div>
+    `;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diff = now - date;
+    
+    if (diff < 60000) return 'Just now';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+    if (diff < 604800000) return `${Math.floor(diff / 86400000)}d ago`;
+    
+    return date.toLocaleDateString();
+}
+
+// Drag and drop functionality
+let draggedCard = null;
+
+document.addEventListener('dragstart', function(e) {
+    if (e.target.classList.contains('kanban-card')) {
+        draggedCard = e.target;
+        e.target.classList.add('dragging');
+    }
+});
+
+document.addEventListener('dragend', function(e) {
+    if (e.target.classList.contains('kanban-card')) {
+        e.target.classList.remove('dragging');
+        draggedCard = null;
+    }
+});
+
+document.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    const column = e.target.closest('.kanban-column');
+    if (column) {
+        column.classList.add('drag-over');
+    }
+});
+
+document.addEventListener('dragleave', function(e) {
+    const column = e.target.closest('.kanban-column');
+    if (column) {
+        column.classList.remove('drag-over');
+    }
+});
+
+document.addEventListener('drop', async function(e) {
+    e.preventDefault();
+    const column = e.target.closest('.kanban-column');
+    
+    if (column && draggedCard) {
+        column.classList.remove('drag-over');
+        
+        const projectId = draggedCard.dataset.id;
+        const newStatus = column.dataset.status;
+        
+        // Update the project status via API
+        try {
+            await fetch(`/api/projects/${projectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            });
+            
+            // Reload kanban
+            loadKanbanProjects();
+        } catch (error) {
+            console.error('Failed to update project status:', error);
+        }
+    }
+});
+
+// Card menu (edit/delete)
+function showCardMenu(event, projectId) {
+    event.stopPropagation();
+    // For simplicity, we'll use prompt for now
+    const action = prompt('Enter action: edit, delete, or view');
+    if (action === 'edit') {
+        window.location.href = `/project/${projectId}`;
+    } else if (action === 'delete') {
+        if (confirm('Delete this project?')) {
+            fetch(`/api/projects/${projectId}`, { method: 'DELETE' })
+                .then(() => loadKanbanProjects());
+        }
+    } else if (action === 'view') {
+        window.location.href = `/project/${projectId}`;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - AI Project Manager{% endblock %}
+{% block page_title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<div class="project-detail-container">
+    <!-- Project Header -->
+    <div class="project-header">
+        <div class="project-info">
+            <span class="status-badge status-{{ project.status }}">{{ get_status_label(project.status) }}</span>
+            <p class="project-description">{{ project.description or 'No description' }}</p>
+        </div>
+        <div class="project-actions">
+            <button class="btn btn-secondary" onclick="showEditProjectModal()">Edit Project</button>
+        </div>
+    </div>
+
+    <!-- Agent Assignment -->
+    <div class="project-meta-section">
+        <div class="meta-item">
+            <span class="meta-label">AI Agent</span>
+            <div class="meta-value">
+                {% if project.agent %}
+                    <span class="agent-badge" style="background-color: {{ project.agent.avatar_color }}20; color: {{ project.agent.avatar_color }}">
+                        {{ project.agent.name }}
+                    </span>
+                {% else %}
+                    <span class="no-agent">No agent assigned</span>
+                {% endif %}
+                <select id="changeAgent" onchange="changeAgent({{ project.id }})">
+                    <option value="">Change Agent</option>
+                    {% for agent in agents %}
+                        <option value="{{ agent.id }}">{{ agent.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Last Updated</span>
+            <span class="meta-value">{{ project.updated_at.strftime('%Y-%m-%d %H:%M') if project.updated_at else '—' }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Created</span>
+            <span class="meta-value">{{ project.created_at.strftime('%Y-%m-%d %H:%M') if project.created_at else '—' }}</span>
+        </div>
+    </div>
+
+    <!-- Tasks Section -->
+    <div class="section">
+        <div class="section-header">
+            <h3>Tasks</h3>
+            <button class="btn btn-primary" onclick="showAddTaskModal({{ project.id }})">+ Add Task</button>
+        </div>
+        
+        <div class="tasks-container">
+            {% if project.tasks %}
+                {% for task in project.tasks %}
+                <div class="task-item" data-id="{{ task.id }}">
+                    <div class="task-checkbox">
+                        <input type="checkbox" 
+                               {% if task.status == 'completed' %}checked{% endif %}
+                               onchange="toggleTaskStatus({{ task.id }})">
+                    </div>
+                    <div class="task-content">
+                        <span class="task-title {% if task.status == 'completed' %}completed{% endif %}">{{ task.title }}</span>
+                        {% if task.description %}
+                            <p class="task-description">{{ task.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="task-meta">
+                        <span class="priority-badge priority-{{ task.priority }}">{{ task.priority }}</span>
+                        <button class="btn-icon" onclick="deleteTask({{ task.id }})">🗑️</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <p>No tasks yet. Add some tasks to track progress!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Notes Section -->
+    <div class="section">
+        <div class="section-header">
+            <h3>Notes</h3>
+            <button class="btn btn-secondary" onclick="saveNotes()">Save Notes</button>
+        </div>
+        <textarea id="projectNotes" class="notes-editor" placeholder="Add notes about this project...">{{ project.notes or '' }}</textarea>
+    </div>
+
+    <!-- Activity Timeline -->
+    <div class="section">
+        <div class="section-header">
+            <h3>Activity Timeline</h3>
+            <button class="btn btn-secondary" onclick="showAddActivityModal()">+ Add Note</button>
+        </div>
+        
+        <div class="activity-timeline">
+            {% if activities %}
+                {% for activity in activities %}
+                <div class="timeline-item">
+                    <div class="timeline-icon">{{ get_activity_icon(activity.activity_type) }}</div>
+                    <div class="timeline-content">
+                        <p class="timeline-message">{{ activity.message }}</p>
+                        <span class="timeline-time">{{ activity.timestamp.strftime('%Y-%m-%d %H:%M') if activity.timestamp else '—' }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <p>No activity yet</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Edit Project Modal -->
+<div class="modal" id="editProjectModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Project</h3>
+            <button class="modal-close" onclick="closeModal('editProjectModal')">&times;</button>
+        </div>
+        <form id="editProjectForm">
+            <div class="form-group">
+                <label>Project Name</label>
+                <input type="text" id="editProjectName" value="{{ project.name }}" required>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="editProjectDescription" rows="3">{{ project.description or '' }}</textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editProjectStatus">
+                        <option value="planning" {% if project.status == 'planning' %}selected{% endif %}>📝 Planning</option>
+                        <option value="in_progress" {% if project.status == 'in_progress' %}selected{% endif %}>🚀 In Progress</option>
+                        <option value="review" {% if project.status == 'review' %}selected{% endif %}>👀 Review</option>
+                        <option value="complete" {% if project.status == 'complete' %}selected{% endif %}>✅ Complete</option>
+                        <option value="on_hold" {% if project.status == 'on_hold' %}selected{% endif %}>⏸️ On Hold</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editProjectModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Activity Modal -->
+<div class="modal" id="addActivityModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Activity Note</h3>
+            <button class="modal-close" onclick="closeModal('addActivityModal')">&times;</button>
+        </div>
+        <form id="addActivityForm">
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="activityMessage" rows="3" placeholder="What happened?" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="activityType">
+                    <option value="note">💬 Note</option>
+                    <option value="blocker">🚫 Blocker</option>
+                    <option value="update">📌 Update</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addActivityModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const projectId = {{ project.id }};
+
+// Task handling
+document.getElementById('taskForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        title: document.getElementById('taskTitle').value,
+        description: document.getElementById('taskDescription').value,
+        priority: document.getElementById('taskPriority').value,
+        status: document.getElementById('taskStatus').value
+    };
+    
+    try {
+        await fetch(`/api/projects/${projectId}/tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        closeModal('taskModal');
+        this.reset();
+        location.reload();
+    } catch (error) {
+        console.error('Failed to create task:', error);
+    }
+});
+
+async function toggleTaskStatus(taskId) {
+    try {
+        const response = await fetch(`/api/tasks/${taskId}`);
+        const task = await response.json();
+        
+        const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+        
+        await fetch(`/api/tasks/${taskId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        location.reload();
+    } catch (error) {
+        console.error('Failed to update task:', error);
+    }
+}
+
+async function deleteTask(taskId) {
+    if (!confirm('Delete this task?')) return;
+    
+    try {
+        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        location.reload();
+    } catch (error) {
+        console.error('Failed to delete task:', error);
+    }
+}
+
+// Project editing
+document.getElementById('editProjectForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('editProjectName').value,
+        description: document.getElementById('editProjectDescription').value,
+        status: document.getElementById('editProjectStatus').value
+    };
+    
+    try {
+        await fetch(`/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        closeModal('editProjectModal');
+        location.reload();
+    } catch (error) {
+        console.error('Failed to update project:', error);
+    }
+});
+
+// Notes saving
+async function saveNotes() {
+    const notes = document.getElementById('projectNotes').value;
+    
+    try {
+        await fetch(`/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notes })
+        });
+        
+        alert('Notes saved!');
+    } catch (error) {
+        console.error('Failed to save notes:', error);
+    }
+}
+
+// Agent change
+async function changeAgent(projectId) {
+    const agentId = document.getElementById('changeAgent').value;
+    
+    if (!agentId) return;
+    
+    try {
+        await fetch(`/api/projects/${projectId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_id: parseInt(agentId) })
+        });
+        
+        location.reload();
+    } catch (error) {
+        console.error('Failed to change agent:', error);
+    }
+}
+
+// Activity handling
+document.getElementById('addActivityForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = {
+        message: document.getElementById('activityMessage').value,
+        activity_type: document.getElementById('activityType').value
+    };
+    
+    try {
+        await fetch(`/api/projects/${projectId}/activities`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(formData)
+        });
+        
+        closeModal('addActivityModal');
+        this.reset();
+        location.reload();
+    } catch (error) {
+        console.error('Failed to add activity:', error);
+    }
+});
+</script>
+{% endblock %}
+
+{% macro get_status_label(status) %}
+    {% if status == 'planning' %}📝 Planning
+    {% elif status == 'in_progress' %}🚀 In Progress
+    {% elif status == 'review' %}👀 Review
+    {% elif status == 'complete' %}✅ Complete
+    {% elif status == 'on_hold' %}⏸️ On Hold
+    {% endif %}
+{% endmacro %}
+
+{% macro get_activity_icon(type) %}
+    {% if type == 'update' %}📌
+    {% elif type == 'task_complete' %}✅
+    {% elif type == 'blocker' %}🚫
+    {% elif type == 'note' %}💬
+    {% elif type == 'status_change' %}🔄
+    {% else %}📌{% endif %}
+{% endmacro %}
