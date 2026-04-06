@@ -112,6 +112,7 @@
 .fd-card--house-info { grid-column: span 1; }
 .fd-card--wifi       { grid-column: span 1; }
 .fd-card--activity   { grid-column: span 2; }
+.fd-card--g4s        { grid-column: span 2; }
 
 /* ---- Glassmorphism Cards ---- */
 
@@ -658,6 +659,145 @@
     margin-top: 2px;
 }
 
+/* ---- Go4Schools Widget ---- */
+
+.fd-g4s-connect-btn {
+    margin-top: 12px;
+    padding: 8px 20px;
+    border-radius: 10px;
+    border: 1px solid var(--accent-primary, #6366f1);
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--accent-secondary, #818cf8);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s var(--fd-spring-ease);
+}
+
+.fd-g4s-connect-btn:hover {
+    background: var(--accent-primary, #6366f1);
+    color: white;
+    transform: scale(1.05);
+}
+
+.fd-g4s-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 3px;
+}
+
+.fd-g4s-tab {
+    flex: 1;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted, #64748b);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.fd-g4s-tab--active {
+    background: rgba(99, 102, 241, 0.2);
+    color: var(--accent-secondary, #818cf8);
+}
+
+.fd-g4s-tab:hover:not(.fd-g4s-tab--active) {
+    color: var(--text-secondary, #94a3b8);
+}
+
+.fd-g4s-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fd-g4s-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    transition: all 0.2s;
+}
+
+.fd-g4s-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.fd-g4s-item__time {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary, #94a3b8);
+    min-width: 48px;
+    font-variant-numeric: tabular-nums;
+}
+
+.fd-g4s-item__info {
+    flex: 1;
+    min-width: 0;
+}
+
+.fd-g4s-item__name {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.fd-g4s-item__sub {
+    font-size: 0.75rem;
+    color: var(--text-muted, #64748b);
+}
+
+.fd-g4s-item__badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.fd-g4s-item__badge--due {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--warning, #f59e0b);
+}
+
+.fd-g4s-item__badge--overdue {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--danger, #ef4444);
+}
+
+.fd-g4s-item__badge--done {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success, #10b981);
+}
+
+.fd-g4s-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    color: var(--success, #10b981);
+    margin-bottom: 8px;
+}
+
+.fd-g4s-status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--success, #10b981);
+    animation: fd-g4s-pulse 2s ease infinite;
+}
+
+@keyframes fd-g4s-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
 /* ---- Nav Back Button ---- */
 
 .fd-nav-back {
@@ -708,6 +848,7 @@
     .fd-card--schedule   { grid-column: span 2; }
     .fd-card--grocery    { grid-column: span 1; grid-row: span 1; }
     .fd-card--activity   { grid-column: span 2; }
+    .fd-card--g4s        { grid-column: span 2; }
 }
 
 /* iPhone */

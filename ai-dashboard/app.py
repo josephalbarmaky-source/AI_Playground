@@ -1,10 +1,13 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
+import os
+import requests as http_requests
 from models import db, Agent, Project, Task, ActivityLog, ScheduleEvent, GroceryItem, HouseInfo, FamilyActivity
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['GO4SCHOOLS_API_KEY'] = os.environ.get('GO4SCHOOLS_API_KEY', '')
 db.init_app(app)
 
 
@@ -478,6 +481,87 @@ def get_family_dashboard_data():
 @app.route('/api/family/ping', methods=['GET'])
 def family_ping():
     return jsonify({'ok': True, 'timestamp': datetime.utcnow().isoformat()})
+
+
+# --- Go4Schools Integration ---
+
+def g4s_request(endpoint):
+    """Make an authenticated request to the Go4Schools API."""
+    api_key = app.config.get('GO4SCHOOLS_API_KEY', '')
+    if not api_key:
+        return None
+    try:
+        resp = http_requests.get(
+            f'https://api.go4schools.com/api/{endpoint}',
+            headers={'Authorization': f'Bearer {api_key}'},
+            timeout=10
+        )
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        print(f'Go4Schools API error: {e}')
+        return None
+
+
+@app.route('/api/family/g4s/status', methods=['GET'])
+def g4s_status():
+    """Check if Go4Schools API key is configured."""
+    key = app.config.get('GO4SCHOOLS_API_KEY', '')
+    return jsonify({'connected': bool(key)})
+
+
+@app.route('/api/family/g4s/setup', methods=['POST'])
+def g4s_setup():
+    """Save Go4Schools API key."""
+    data = request.json
+    key = data.get('api_key', '').strip()
+    app.config['GO4SCHOOLS_API_KEY'] = key
+    # Also persist to .env file
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            lines = [l for l in f.readlines() if not l.startswith('GO4SCHOOLS_API_KEY=')]
+    lines.append(f'GO4SCHOOLS_API_KEY={key}\n')
+    with open(env_path, 'w') as f:
+        f.writelines(lines)
+    return jsonify({'connected': bool(key)})
+
+
+@app.route('/api/family/g4s/timetable', methods=['GET'])
+def g4s_timetable():
+    """Get student timetable from Go4Schools."""
+    data = g4s_request('Timetable')
+    if data is None:
+        return jsonify({'error': 'Not connected or API error', 'events': []}), 200
+    return jsonify(data)
+
+
+@app.route('/api/family/g4s/homework', methods=['GET'])
+def g4s_homework():
+    """Get homework/tasks from Go4Schools."""
+    data = g4s_request('Homework')
+    if data is None:
+        return jsonify({'error': 'Not connected or API error', 'items': []}), 200
+    return jsonify(data)
+
+
+@app.route('/api/family/g4s/attendance', methods=['GET'])
+def g4s_attendance():
+    """Get attendance summary from Go4Schools."""
+    data = g4s_request('Attendance/SessionMarks')
+    if data is None:
+        return jsonify({'error': 'Not connected or API error', 'marks': []}), 200
+    return jsonify(data)
+
+
+@app.route('/api/family/g4s/grades', methods=['GET'])
+def g4s_grades():
+    """Get student grades/marks from Go4Schools."""
+    data = g4s_request('Assessment/Marks')
+    if data is None:
+        return jsonify({'error': 'Not connected or API error', 'marks': []}), 200
+    return jsonify(data)
 
 
 init_db()

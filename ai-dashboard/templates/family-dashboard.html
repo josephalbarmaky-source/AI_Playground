@@ -89,6 +89,33 @@
                 </div>
             </section>
 
+            <!-- Go4Schools Widget -->
+            <section class="fd-card fd-card--g4s" id="g4sWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">🎓 Ayan's School</h2>
+                    <button class="fd-card__btn" onclick="FamilyDashboard.G4S.showSetup()" title="Settings">⚙</button>
+                </div>
+                <div class="fd-card__body fd-card__body--scroll" id="g4sBody">
+                    <div class="fd-empty" id="g4sSetupPrompt">
+                        <div style="text-align:center">
+                            <div style="font-size:2rem;margin-bottom:8px">🔗</div>
+                            <div>Connect Go4Schools</div>
+                            <button class="fd-g4s-connect-btn" onclick="FamilyDashboard.G4S.showSetup()">Set up</button>
+                        </div>
+                    </div>
+                    <div id="g4sContent" style="display:none">
+                        <div class="fd-g4s-tabs">
+                            <button class="fd-g4s-tab fd-g4s-tab--active" data-tab="timetable" onclick="FamilyDashboard.G4S.switchTab('timetable')">Timetable</button>
+                            <button class="fd-g4s-tab" data-tab="homework" onclick="FamilyDashboard.G4S.switchTab('homework')">Homework</button>
+                            <button class="fd-g4s-tab" data-tab="grades" onclick="FamilyDashboard.G4S.switchTab('grades')">Grades</button>
+                        </div>
+                        <div id="g4sTimetable" class="fd-g4s-panel"></div>
+                        <div id="g4sHomework" class="fd-g4s-panel" style="display:none"></div>
+                        <div id="g4sGrades" class="fd-g4s-panel" style="display:none"></div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Activity Feed -->
             <section class="fd-card fd-card--activity" id="activityWidget">
                 <div class="fd-card__header">
@@ -230,6 +257,29 @@
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('fdActivityModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Go4Schools Setup Modal -->
+    <div class="modal" id="fdG4SModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Connect Go4Schools</h3>
+                <button class="modal-close" onclick="closeModal('fdG4SModal')">&times;</button>
+            </div>
+            <form id="g4sForm" onsubmit="FamilyDashboard.G4S.saveKey(event)">
+                <div class="form-group">
+                    <label for="g4sApiKey">API Key</label>
+                    <input type="password" id="g4sApiKey" required placeholder="Paste your Go4Schools API key">
+                    <small style="color:var(--text-muted);font-size:0.75rem;margin-top:4px;display:block">
+                        Ask your school for a Go4Schools API key, or get it from your school's Go4Schools admin panel.
+                    </small>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('fdG4SModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Connect</button>
                 </div>
             </form>
         </div>

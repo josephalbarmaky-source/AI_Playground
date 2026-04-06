@@ -11,6 +11,7 @@ const FamilyDashboard = {
         this.Clock.init();
         this.Weather.init();
         this.WiFi.init();
+        this.G4S.init();
         this.loadAll();
         this.startAutoRefresh();
 
@@ -140,7 +141,7 @@ const FamilyDashboard = {
                     localStorage.setItem('fd_lon', lon);
                 }
 
-                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=fahrenheit`;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`;
                 const resp = await fetch(url);
                 const data = await resp.json();
                 this.render(data.current_weather);
@@ -155,7 +156,7 @@ const FamilyDashboard = {
             const icon = this.getIcon(weather.weathercode);
             const temp = Math.round(weather.temperature);
             document.querySelector('.fd-weather__icon').textContent = icon;
-            document.getElementById('fdTemp').textContent = `${temp}\u00B0F`;
+            document.getElementById('fdTemp').textContent = `${temp}\u00B0C`;
             document.getElementById('fdWeatherDesc').textContent = this.getDesc(weather.weathercode);
         },
 
@@ -574,6 +575,181 @@ const FamilyDashboard = {
 
             document.getElementById('wifiStatus').textContent = status;
             document.getElementById('wifiSpeed').textContent = speed;
+        }
+    },
+
+    // ==================== GO4SCHOOLS ====================
+    G4S: {
+        connected: false,
+        activeTab: 'timetable',
+        timetableData: null,
+        homeworkData: null,
+        gradesData: null,
+
+        async init() {
+            try {
+                const status = await apiRequest('/api/family/g4s/status');
+                this.connected = status.connected;
+                if (this.connected) {
+                    document.getElementById('g4sSetupPrompt').style.display = 'none';
+                    document.getElementById('g4sContent').style.display = '';
+                    this.loadAll();
+                }
+            } catch (e) {
+                console.warn('G4S status check failed:', e);
+            }
+        },
+
+        async loadAll() {
+            if (!this.connected) return;
+            await Promise.all([
+                this.loadTimetable(),
+                this.loadHomework(),
+                this.loadGrades()
+            ]);
+        },
+
+        async loadTimetable() {
+            try {
+                const data = await apiRequest('/api/family/g4s/timetable');
+                this.timetableData = data;
+                this.renderTimetable(data);
+            } catch (e) {
+                document.getElementById('g4sTimetable').innerHTML = '<div class="fd-empty">Could not load timetable</div>';
+            }
+        },
+
+        async loadHomework() {
+            try {
+                const data = await apiRequest('/api/family/g4s/homework');
+                this.homeworkData = data;
+                this.renderHomework(data);
+            } catch (e) {
+                document.getElementById('g4sHomework').innerHTML = '<div class="fd-empty">Could not load homework</div>';
+            }
+        },
+
+        async loadGrades() {
+            try {
+                const data = await apiRequest('/api/family/g4s/grades');
+                this.gradesData = data;
+                this.renderGrades(data);
+            } catch (e) {
+                document.getElementById('g4sGrades').innerHTML = '<div class="fd-empty">Could not load grades</div>';
+            }
+        },
+
+        renderTimetable(data) {
+            const el = document.getElementById('g4sTimetable');
+            const events = data.events || data.Results || data || [];
+            if (!Array.isArray(events) || events.length === 0) {
+                el.innerHTML = `<div class="fd-g4s-status"><span class="fd-g4s-status-dot"></span> Connected to Go4Schools</div>
+                    <div class="fd-empty">No timetable data available</div>`;
+                return;
+            }
+            el.innerHTML = `<div class="fd-g4s-status"><span class="fd-g4s-status-dot"></span> Live from Go4Schools</div>` +
+                events.slice(0, 10).map(e => `
+                    <div class="fd-g4s-item">
+                        <span class="fd-g4s-item__time">${this.escHtml(e.Period || e.start_time || '')}</span>
+                        <div class="fd-g4s-item__info">
+                            <div class="fd-g4s-item__name">${this.escHtml(e.Subject || e.title || e.Name || 'Class')}</div>
+                            <div class="fd-g4s-item__sub">${this.escHtml(e.Room || e.Teacher || e.location || '')}</div>
+                        </div>
+                    </div>`).join('');
+        },
+
+        renderHomework(data) {
+            const el = document.getElementById('g4sHomework');
+            const items = data.items || data.Results || data || [];
+            if (!Array.isArray(items) || items.length === 0) {
+                el.innerHTML = `<div class="fd-g4s-status"><span class="fd-g4s-status-dot"></span> Connected to Go4Schools</div>
+                    <div class="fd-empty">No homework right now</div>`;
+                return;
+            }
+            const now = new Date();
+            el.innerHTML = `<div class="fd-g4s-status"><span class="fd-g4s-status-dot"></span> Live from Go4Schools</div>` +
+                items.slice(0, 10).map(h => {
+                    const due = h.DueDate || h.due_date;
+                    let badgeClass = 'fd-g4s-item__badge--due';
+                    let badgeText = 'Due';
+                    if (due) {
+                        const dueDate = new Date(due);
+                        if (dueDate < now) { badgeClass = 'fd-g4s-item__badge--overdue'; badgeText = 'Overdue'; }
+                    }
+                    if (h.Completed || h.is_completed) { badgeClass = 'fd-g4s-item__badge--done'; badgeText = 'Done'; }
+                    return `
+                        <div class="fd-g4s-item">
+                            <div class="fd-g4s-item__info">
+                                <div class="fd-g4s-item__name">${this.escHtml(h.Title || h.Subject || h.title || 'Task')}</div>
+                                <div class="fd-g4s-item__sub">${this.escHtml(h.Subject || h.Description || '')}${due ? ' \u2022 Due ' + new Date(due).toLocaleDateString() : ''}</div>
+                            </div>
+                            <span class="fd-g4s-item__badge ${badgeClass}">${badgeText}</span>
+                        </div>`;
+                }).join('');
+        },
+
+        renderGrades(data) {
+            const el = document.getElementById('g4sGrades');
+            const marks = data.marks || data.Results || data || [];
+            if (!Array.isArray(marks) || marks.length === 0) {
+                el.innerHTML = `<div class="fd-g4s-status"><span class="fd-g4s-status-dot"></span> Connected to Go4Schools</div>
+                    <div class="fd-empty">No grades available</div>`;
+                return;
+            }
+            el.innerHTML = `<div class="fd-g4s-status"><span class="fd-g4s-status-dot"></span> Live from Go4Schools</div>` +
+                marks.slice(0, 10).map(m => `
+                    <div class="fd-g4s-item">
+                        <div class="fd-g4s-item__info">
+                            <div class="fd-g4s-item__name">${this.escHtml(m.Subject || m.Assessment || m.title || 'Subject')}</div>
+                            <div class="fd-g4s-item__sub">${this.escHtml(m.Assessment || m.Description || '')}</div>
+                        </div>
+                        <span class="fd-g4s-item__badge fd-g4s-item__badge--done">${this.escHtml(m.Grade || m.Mark || m.grade || '--')}</span>
+                    </div>`).join('');
+        },
+
+        switchTab(tab) {
+            this.activeTab = tab;
+            document.querySelectorAll('.fd-g4s-tab').forEach(t => {
+                t.classList.toggle('fd-g4s-tab--active', t.dataset.tab === tab);
+            });
+            document.getElementById('g4sTimetable').style.display = tab === 'timetable' ? '' : 'none';
+            document.getElementById('g4sHomework').style.display = tab === 'homework' ? '' : 'none';
+            document.getElementById('g4sGrades').style.display = tab === 'grades' ? '' : 'none';
+        },
+
+        showSetup() {
+            document.getElementById('g4sForm').reset();
+            showModal('fdG4SModal');
+        },
+
+        async saveKey(e) {
+            e.preventDefault();
+            const key = document.getElementById('g4sApiKey').value.trim();
+            if (!key) return;
+            try {
+                const result = await apiRequest('/api/family/g4s/setup', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ api_key: key })
+                });
+                this.connected = result.connected;
+                if (this.connected) {
+                    document.getElementById('g4sSetupPrompt').style.display = 'none';
+                    document.getElementById('g4sContent').style.display = '';
+                    this.loadAll();
+                    FamilyDashboard.pulseCard('g4sWidget');
+                }
+            } catch (err) {
+                alert('Failed to save API key');
+            }
+            closeModal('fdG4SModal');
+        },
+
+        escHtml(s) {
+            if (!s) return '';
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
         }
     },
 
