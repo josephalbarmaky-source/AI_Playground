@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 from datetime import datetime
-from models import db, Agent, Project, Task, ActivityLog
+from models import db, Agent, Project, Task, ActivityLog, ScheduleEvent, GroceryItem, HouseInfo, FamilyActivity
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -282,6 +282,202 @@ def get_stats():
         'completed_tasks': completed_tasks,
         'recent_activities': [a.to_dict() for a in recent_activities]
     })
+
+
+# ==================== FAMILY DASHBOARD ====================
+
+@app.route('/family')
+def family_dashboard():
+    """Family home dashboard - standalone full-screen view."""
+    return render_template('family-dashboard.html')
+
+
+# --- Family Schedule API ---
+
+@app.route('/api/family/schedule', methods=['GET'])
+def get_schedule():
+    events = ScheduleEvent.query.order_by(ScheduleEvent.day_of_week, ScheduleEvent.start_time).all()
+    return jsonify([e.to_dict() for e in events])
+
+
+@app.route('/api/family/schedule', methods=['POST'])
+def create_schedule_event():
+    data = request.json
+    event = ScheduleEvent(
+        title=data['title'],
+        day_of_week=data['day_of_week'],
+        start_time=data['start_time'],
+        end_time=data['end_time'],
+        location=data.get('location'),
+        color=data.get('color', '#6366f1')
+    )
+    db.session.add(event)
+    db.session.commit()
+    return jsonify(event.to_dict()), 201
+
+
+@app.route('/api/family/schedule/<int:event_id>', methods=['PUT'])
+def update_schedule_event(event_id):
+    event = ScheduleEvent.query.get_or_404(event_id)
+    data = request.json
+    for field in ['title', 'day_of_week', 'start_time', 'end_time', 'location', 'color']:
+        if field in data:
+            setattr(event, field, data[field])
+    db.session.commit()
+    return jsonify(event.to_dict())
+
+
+@app.route('/api/family/schedule/<int:event_id>', methods=['DELETE'])
+def delete_schedule_event(event_id):
+    event = ScheduleEvent.query.get_or_404(event_id)
+    db.session.delete(event)
+    db.session.commit()
+    return jsonify({'message': 'Event deleted'})
+
+
+# --- Family Grocery API ---
+
+@app.route('/api/family/grocery', methods=['GET'])
+def get_grocery():
+    query = GroceryItem.query
+    checked = request.args.get('checked')
+    if checked == 'false':
+        query = query.filter_by(is_checked=False)
+    items = query.order_by(GroceryItem.is_checked, GroceryItem.category, GroceryItem.created_at.desc()).all()
+    return jsonify([i.to_dict() for i in items])
+
+
+@app.route('/api/family/grocery', methods=['POST'])
+def create_grocery_item():
+    data = request.json
+    item = GroceryItem(
+        name=data['name'],
+        category=data.get('category', 'general'),
+        quantity=data.get('quantity'),
+        added_by=data.get('added_by')
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(item.to_dict()), 201
+
+
+@app.route('/api/family/grocery/<int:item_id>', methods=['PUT'])
+def update_grocery_item(item_id):
+    item = GroceryItem.query.get_or_404(item_id)
+    data = request.json
+    for field in ['name', 'category', 'quantity', 'is_checked', 'added_by']:
+        if field in data:
+            setattr(item, field, data[field])
+    db.session.commit()
+    return jsonify(item.to_dict())
+
+
+@app.route('/api/family/grocery/<int:item_id>', methods=['DELETE'])
+def delete_grocery_item(item_id):
+    item = GroceryItem.query.get_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'Item deleted'})
+
+
+@app.route('/api/family/grocery/checked', methods=['DELETE'])
+def clear_checked_grocery():
+    GroceryItem.query.filter_by(is_checked=True).delete()
+    db.session.commit()
+    return jsonify({'message': 'Checked items cleared'})
+
+
+# --- Family House Info API ---
+
+@app.route('/api/family/house-info', methods=['GET'])
+def get_house_info():
+    entries = HouseInfo.query.order_by(HouseInfo.category, HouseInfo.sort_order).all()
+    return jsonify([e.to_dict() for e in entries])
+
+
+@app.route('/api/family/house-info', methods=['POST'])
+def create_house_info():
+    data = request.json
+    entry = HouseInfo(
+        category=data['category'],
+        label=data['label'],
+        value=data['value'],
+        icon=data.get('icon'),
+        sort_order=data.get('sort_order', 0)
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify(entry.to_dict()), 201
+
+
+@app.route('/api/family/house-info/<int:entry_id>', methods=['PUT'])
+def update_house_info(entry_id):
+    entry = HouseInfo.query.get_or_404(entry_id)
+    data = request.json
+    for field in ['category', 'label', 'value', 'icon', 'sort_order']:
+        if field in data:
+            setattr(entry, field, data[field])
+    db.session.commit()
+    return jsonify(entry.to_dict())
+
+
+@app.route('/api/family/house-info/<int:entry_id>', methods=['DELETE'])
+def delete_house_info(entry_id):
+    entry = HouseInfo.query.get_or_404(entry_id)
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({'message': 'Entry deleted'})
+
+
+# --- Family Activity API ---
+
+@app.route('/api/family/activities', methods=['GET'])
+def get_family_activities():
+    activities = FamilyActivity.query.order_by(FamilyActivity.timestamp.desc()).limit(50).all()
+    return jsonify([a.to_dict() for a in activities])
+
+
+@app.route('/api/family/activities', methods=['POST'])
+def create_family_activity():
+    data = request.json
+    activity = FamilyActivity(
+        member=data['member'],
+        message=data['message'],
+        activity_type=data.get('activity_type', 'general')
+    )
+    db.session.add(activity)
+    db.session.commit()
+    return jsonify(activity.to_dict()), 201
+
+
+@app.route('/api/family/activities/<int:activity_id>', methods=['DELETE'])
+def delete_family_activity(activity_id):
+    activity = FamilyActivity.query.get_or_404(activity_id)
+    db.session.delete(activity)
+    db.session.commit()
+    return jsonify({'message': 'Activity deleted'})
+
+
+# --- Family Dashboard Aggregate + Utility ---
+
+@app.route('/api/family/dashboard-data', methods=['GET'])
+def get_family_dashboard_data():
+    schedule = ScheduleEvent.query.order_by(ScheduleEvent.day_of_week, ScheduleEvent.start_time).all()
+    grocery = GroceryItem.query.order_by(GroceryItem.is_checked, GroceryItem.category, GroceryItem.created_at.desc()).all()
+    house_info = HouseInfo.query.order_by(HouseInfo.category, HouseInfo.sort_order).all()
+    activities = FamilyActivity.query.order_by(FamilyActivity.timestamp.desc()).limit(50).all()
+    return jsonify({
+        'schedule': [e.to_dict() for e in schedule],
+        'grocery': [i.to_dict() for i in grocery],
+        'house_info': [e.to_dict() for e in house_info],
+        'activities': [a.to_dict() for a in activities],
+        'server_time': datetime.utcnow().isoformat()
+    })
+
+
+@app.route('/api/family/ping', methods=['GET'])
+def family_ping():
+    return jsonify({'ok': True, 'timestamp': datetime.utcnow().isoformat()})
 
 
 if __name__ == '__main__':

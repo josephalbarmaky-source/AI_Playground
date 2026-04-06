@@ -90,11 +90,99 @@ class ActivityLog(db.Model):
     message = db.Column(db.Text, nullable=False)
     activity_type = db.Column(db.String(50), default='update')  # update, task_complete, blocker, note, status_change
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    
+
     def to_dict(self):
         return {
             'id': self.id,
             'project_id': self.project_id,
+            'message': self.message,
+            'activity_type': self.activity_type,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }
+
+
+# ==================== FAMILY DASHBOARD MODELS ====================
+
+class ScheduleEvent(db.Model):
+    """School schedule events."""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    day_of_week = db.Column(db.Integer, nullable=False)  # 0=Monday .. 6=Sunday
+    start_time = db.Column(db.String(5), nullable=False)  # "08:30" HH:MM
+    end_time = db.Column(db.String(5), nullable=False)    # "09:15"
+    location = db.Column(db.String(200))
+    color = db.Column(db.String(20), default='#6366f1')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'day_of_week': self.day_of_week,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'location': self.location,
+            'color': self.color,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class GroceryItem(db.Model):
+    """Grocery list items."""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(200), nullable=False)
+    category = db.Column(db.String(50), default='general')  # produce, dairy, meat, pantry, frozen, general
+    quantity = db.Column(db.String(50))
+    is_checked = db.Column(db.Boolean, default=False)
+    added_by = db.Column(db.String(50))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'category': self.category,
+            'quantity': self.quantity,
+            'is_checked': self.is_checked,
+            'added_by': self.added_by,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class HouseInfo(db.Model):
+    """General household information entries."""
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(50), nullable=False)  # wifi, emergency, utilities, codes, contacts
+    label = db.Column(db.String(200), nullable=False)
+    value = db.Column(db.Text, nullable=False)
+    icon = db.Column(db.String(10))
+    sort_order = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'category': self.category,
+            'label': self.label,
+            'value': self.value,
+            'icon': self.icon,
+            'sort_order': self.sort_order,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class FamilyActivity(db.Model):
+    """Family activity feed."""
+    id = db.Column(db.Integer, primary_key=True)
+    member = db.Column(db.String(50), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    activity_type = db.Column(db.String(50), default='general')  # general, chore, event, reminder, note
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'member': self.member,
             'message': self.message,
             'activity_type': self.activity_type,
             'timestamp': self.timestamp.isoformat() if self.timestamp else None

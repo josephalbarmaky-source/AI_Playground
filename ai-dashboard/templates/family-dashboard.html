@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Family Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/family-dashboard.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="fd-body">
+    <div class="fd-container">
+        <!-- Top bar -->
+        <header class="fd-header">
+            <div class="fd-clock" id="fdClock">
+                <span class="fd-clock__time" id="fdTime">--:--</span>
+                <span class="fd-clock__seconds" id="fdSeconds">00</span>
+            </div>
+            <div class="fd-date" id="fdDate">Loading...</div>
+            <div class="fd-weather" id="fdWeather">
+                <span class="fd-weather__icon">--</span>
+                <span class="fd-weather__temp" id="fdTemp">--</span>
+                <span class="fd-weather__desc" id="fdWeatherDesc">Loading...</span>
+            </div>
+        </header>
+
+        <!-- Bento grid -->
+        <main class="fd-grid">
+            <!-- Schedule Widget -->
+            <section class="fd-card fd-card--schedule" id="scheduleWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">📅 Ayan's Schedule</h2>
+                    <button class="fd-card__btn" onclick="FamilyDashboard.Schedule.showModal()">+</button>
+                </div>
+                <div class="fd-card__body" id="scheduleBody">
+                    <div class="fd-empty">No classes today</div>
+                </div>
+            </section>
+
+            <!-- Grocery Widget -->
+            <section class="fd-card fd-card--grocery" id="groceryWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">🛒 Grocery List</h2>
+                    <span class="fd-badge" id="groceryCount">0</span>
+                </div>
+                <div class="fd-grocery-add">
+                    <input type="text" id="groceryQuickAdd" class="fd-input" placeholder="Add item..." onkeydown="if(event.key==='Enter')FamilyDashboard.Grocery.quickAdd()">
+                    <button class="fd-card__btn" onclick="FamilyDashboard.Grocery.quickAdd()">+</button>
+                </div>
+                <div class="fd-card__body fd-card__body--scroll" id="groceryBody">
+                    <div class="fd-empty">No items yet</div>
+                </div>
+                <div class="fd-card__footer" id="groceryFooter" style="display:none;">
+                    <button class="fd-link-btn" onclick="FamilyDashboard.Grocery.clearChecked()">Clear checked</button>
+                </div>
+            </section>
+
+            <!-- House Info Widget -->
+            <section class="fd-card fd-card--house-info" id="houseInfoWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">🏡 House Info</h2>
+                    <button class="fd-card__btn" onclick="FamilyDashboard.HouseInfo.showModal()">+</button>
+                </div>
+                <div class="fd-card__body fd-card__body--scroll" id="houseInfoBody">
+                    <div class="fd-empty">No info added</div>
+                </div>
+            </section>
+
+            <!-- WiFi Widget -->
+            <section class="fd-card fd-card--wifi" id="wifiWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">📶 WiFi</h2>
+                </div>
+                <div class="fd-card__body fd-wifi-body" id="wifiBody">
+                    <div class="fd-wifi-bars" id="wifiBars">
+                        <div class="fd-wifi-bar" data-bar="1"></div>
+                        <div class="fd-wifi-bar" data-bar="2"></div>
+                        <div class="fd-wifi-bar" data-bar="3"></div>
+                        <div class="fd-wifi-bar" data-bar="4"></div>
+                    </div>
+                    <div class="fd-wifi-info">
+                        <span class="fd-wifi-status" id="wifiStatus">Checking...</span>
+                        <span class="fd-wifi-speed" id="wifiSpeed"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Feed -->
+            <section class="fd-card fd-card--activity" id="activityWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">📋 Activity</h2>
+                    <button class="fd-card__btn" onclick="FamilyDashboard.Activity.showModal()">+</button>
+                </div>
+                <div class="fd-card__body fd-card__body--scroll" id="activityBody">
+                    <div class="fd-empty">No activity yet</div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Nav back -->
+        <a href="/" class="fd-nav-back" title="Back to AI Dashboard">🤖</a>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div class="modal" id="fdScheduleModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="scheduleModalTitle">Add Class</h3>
+                <button class="modal-close" onclick="closeModal('fdScheduleModal')">&times;</button>
+            </div>
+            <form id="scheduleForm" onsubmit="FamilyDashboard.Schedule.save(event)">
+                <input type="hidden" id="scheduleEditId">
+                <div class="form-group">
+                    <label for="scheduleTitle">Class Name</label>
+                    <input type="text" id="scheduleTitle" required placeholder="e.g. Math">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="scheduleDay">Day</label>
+                        <select id="scheduleDay" required>
+                            <option value="0">Monday</option>
+                            <option value="1">Tuesday</option>
+                            <option value="2">Wednesday</option>
+                            <option value="3">Thursday</option>
+                            <option value="4">Friday</option>
+                            <option value="5">Saturday</option>
+                            <option value="6">Sunday</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleColor">Color</label>
+                        <input type="color" id="scheduleColor" value="#6366f1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="scheduleStart">Start</label>
+                        <input type="time" id="scheduleStart" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="scheduleEnd">End</label>
+                        <input type="time" id="scheduleEnd" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="scheduleLocation">Location</label>
+                    <input type="text" id="scheduleLocation" placeholder="e.g. Room 204">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('fdScheduleModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- House Info Modal -->
+    <div class="modal" id="fdHouseInfoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="houseInfoModalTitle">Add Info</h3>
+                <button class="modal-close" onclick="closeModal('fdHouseInfoModal')">&times;</button>
+            </div>
+            <form id="houseInfoForm" onsubmit="FamilyDashboard.HouseInfo.save(event)">
+                <input type="hidden" id="houseInfoEditId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="houseInfoCategory">Category</label>
+                        <select id="houseInfoCategory" required>
+                            <option value="wifi">WiFi</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="utilities">Utilities</option>
+                            <option value="codes">Codes</option>
+                            <option value="contacts">Contacts</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="houseInfoIcon">Icon</label>
+                        <input type="text" id="houseInfoIcon" placeholder="e.g. 📶" maxlength="4">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="houseInfoLabel">Label</label>
+                    <input type="text" id="houseInfoLabel" required placeholder="e.g. WiFi Password">
+                </div>
+                <div class="form-group">
+                    <label for="houseInfoValue">Value</label>
+                    <input type="text" id="houseInfoValue" required placeholder="e.g. MyPassword123">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('fdHouseInfoModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Activity Modal -->
+    <div class="modal" id="fdActivityModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Activity</h3>
+                <button class="modal-close" onclick="closeModal('fdActivityModal')">&times;</button>
+            </div>
+            <form id="activityForm" onsubmit="FamilyDashboard.Activity.save(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="activityMember">Member</label>
+                        <input type="text" id="activityMember" required placeholder="Name">
+                    </div>
+                    <div class="form-group">
+                        <label for="activityType">Type</label>
+                        <select id="activityType">
+                            <option value="general">General</option>
+                            <option value="chore">Chore</option>
+                            <option value="event">Event</option>
+                            <option value="reminder">Reminder</option>
+                            <option value="note">Note</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="activityMessage">Message</label>
+                    <input type="text" id="activityMessage" required placeholder="What happened?">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('fdActivityModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/family-dashboard.js') }}"></script>
+</body>
+</html>
