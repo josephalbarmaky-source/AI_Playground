@@ -189,3 +189,122 @@ class FamilyActivity(db.Model):
             'activity_type': self.activity_type,
             'timestamp': self.timestamp.isoformat() if self.timestamp else None
         }
+
+
+# ==================== MEETING ASSISTANT MODELS ====================
+
+class Meeting(db.Model):
+    """A recorded meeting session."""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(300), nullable=False)
+    meeting_type = db.Column(db.String(20), default='work')  # 'school' or 'work'
+    platform = db.Column(db.String(50), default='teams')
+    status = db.Column(db.String(20), default='live')  # 'live', 'processing', 'complete'
+    started_at = db.Column(db.DateTime, default=datetime.utcnow)
+    ended_at = db.Column(db.DateTime, nullable=True)
+    duration_minutes = db.Column(db.Integer, nullable=True)
+
+    transcripts = db.relationship('TranscriptSegment', backref='meeting', lazy=True, cascade='all, delete-orphan')
+    screenshots = db.relationship('Screenshot', backref='meeting', lazy=True, cascade='all, delete-orphan')
+    notes = db.relationship('MeetingNotes', backref='meeting', uselist=False, cascade='all, delete-orphan')
+    chats = db.relationship('ChatMessage', backref='meeting', lazy=True, cascade='all, delete-orphan')
+
+    def to_dict(self, include_details=False):
+        result = {
+            'id': self.id,
+            'title': self.title,
+            'meeting_type': self.meeting_type,
+            'platform': self.platform,
+            'status': self.status,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'ended_at': self.ended_at.isoformat() if self.ended_at else None,
+            'duration_minutes': self.duration_minutes,
+            'transcript_count': len(self.transcripts),
+            'screenshot_count': len(self.screenshots),
+            'has_notes': self.notes is not None
+        }
+        if include_details:
+            result['transcripts'] = [t.to_dict() for t in self.transcripts]
+            result['screenshots'] = [s.to_dict() for s in self.screenshots]
+            result['notes'] = self.notes.to_dict() if self.notes else None
+        return result
+
+
+class TranscriptSegment(db.Model):
+    """A segment of transcribed speech from a meeting."""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    text = db.Column(db.Text, nullable=False)
+    timestamp_sec = db.Column(db.Float)  # seconds from meeting start
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'text': self.text,
+            'timestamp_sec': self.timestamp_sec,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class Screenshot(db.Model):
+    """A screenshot captured during a meeting."""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False)
+    file_path = db.Column(db.String(500), nullable=False)
+    timestamp_sec = db.Column(db.Float)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'file_path': self.file_path,
+            'timestamp_sec': self.timestamp_sec,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+import json
+
+class MeetingNotes(db.Model):
+    """AI-generated notes for a meeting."""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=False, unique=True)
+    summary = db.Column(db.Text)
+    topics = db.Column(db.Text)           # JSON array
+    action_items = db.Column(db.Text)     # JSON array
+    upcoming_tasks = db.Column(db.Text)   # JSON array (exams, deadlines, homework)
+    key_decisions = db.Column(db.Text)    # JSON array
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'summary': self.summary,
+            'topics': json.loads(self.topics) if self.topics else [],
+            'action_items': json.loads(self.action_items) if self.action_items else [],
+            'upcoming_tasks': json.loads(self.upcoming_tasks) if self.upcoming_tasks else [],
+            'key_decisions': json.loads(self.key_decisions) if self.key_decisions else [],
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
+class ChatMessage(db.Model):
+    """A chatbot Q&A interaction about meeting content."""
+    id = db.Column(db.Integer, primary_key=True)
+    meeting_id = db.Column(db.Integer, db.ForeignKey('meeting.id'), nullable=True)  # null = cross-meeting query
+    question = db.Column(db.Text, nullable=False)
+    answer = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'meeting_id': self.meeting_id,
+            'question': self.question,
+            'answer': self.answer,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }

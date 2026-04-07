@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meeting.title }} - Meetings{% endblock %}
+{% block page_title %}{{ meeting.title }}{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/meetings.css') }}">
+
+<div class="meeting-detail-page" data-meeting-id="{{ meeting.id }}">
+    <!-- Meeting Header -->
+    <div class="meeting-header">
+        <div class="meeting-meta">
+            <a href="/meetings" class="back-link">&larr; All Meetings</a>
+            <h2 class="meeting-title">{{ meeting.title }}</h2>
+            <div class="meeting-badges">
+                <span class="badge badge-{{ meeting.meeting_type }}">{{ meeting.meeting_type }}</span>
+                <span class="badge badge-{{ meeting.status }}" id="meetingStatus">{{ meeting.status }}</span>
+                <span class="meeting-date">{{ meeting.started_at.strftime('%B %d, %Y at %H:%M') if meeting.started_at else '' }}</span>
+                {% if meeting.duration_minutes %}
+                <span class="meeting-duration">{{ meeting.duration_minutes }} min</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="meeting-actions">
+            {% if meeting.status == 'complete' %}
+            <button class="btn btn-secondary" onclick="regenerateNotes()">Regenerate Notes</button>
+            <button class="btn btn-secondary" onclick="exportNotes()">Export Notes</button>
+            {% endif %}
+            <button class="btn btn-danger" onclick="deleteMeeting()">Delete</button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="detail-tabs">
+        <button class="tab-btn active" data-tab="transcript">Transcript</button>
+        <button class="tab-btn" data-tab="screenshots">Screenshots</button>
+        <button class="tab-btn" data-tab="notes">Notes</button>
+        <button class="tab-btn" data-tab="chat">Chat</button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="transcriptTab">
+        <div class="transcript-controls">
+            <input type="text" id="transcriptSearch" placeholder="Search transcript..." class="search-input">
+            <span class="transcript-count" id="transcriptCount">0 segments</span>
+        </div>
+        <div class="transcript-viewer" id="transcriptViewer">
+            <div class="loading">Loading transcript...</div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="screenshotsTab" style="display:none;">
+        <div class="screenshots-grid" id="screenshotsGrid">
+            <div class="loading">Loading screenshots...</div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="notesTab" style="display:none;">
+        <div class="notes-container" id="notesContainer">
+            <div class="loading">Loading notes...</div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="chatTab" style="display:none;">
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Ask a question about this meeting..."
+                    class="chat-input" onkeypress="if(event.key==='Enter') sendChat()">
+                <button class="btn btn-primary chat-send" onclick="sendChat()">Send</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Screenshot Lightbox -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <img id="lightboxImg" src="" alt="Screenshot">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+</div>
+
+<script src="{{ url_for('static', filename='js/meetings.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meeting Assistant</title>
+    <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+    <div class="panel">
+        <!-- Header -->
+        <div class="panel-header">
+            <h1 class="panel-title">Meeting Assistant</h1>
+            <div class="recording-indicator" id="recordingIndicator" style="display:none;">
+                <span class="rec-dot"></span> Recording
+            </div>
+        </div>
+
+        <!-- Setup Section (shown when not recording) -->
+        <div class="setup-section" id="setupSection">
+            <div class="form-group">
+                <label>Meeting Title</label>
+                <input type="text" id="meetingTitle" placeholder="e.g. Physics Lecture" class="input">
+            </div>
+            <div class="form-group">
+                <label>Type</label>
+                <select id="meetingType" class="input">
+                    <option value="school">School / University</option>
+                    <option value="work">Work Meeting</option>
+                </select>
+            </div>
+            <button class="btn btn-record" id="startBtn" onclick="startRecording()">
+                Start Recording
+            </button>
+            <p class="hint">Make sure your Flask backend is running at localhost:5000</p>
+        </div>
+
+        <!-- Recording Section (shown when recording) -->
+        <div class="recording-section" id="recordingSection" style="display:none;">
+            <!-- Timer -->
+            <div class="timer" id="timer">00:00:00</div>
+
+            <!-- Live Transcript -->
+            <div class="section-header">Live Transcript</div>
+            <div class="transcript-area" id="transcriptArea">
+                <div class="placeholder">Waiting for speech...</div>
+            </div>
+
+            <!-- Quick Chat -->
+            <div class="section-header">Ask a Question</div>
+            <div class="chat-area" id="chatArea"></div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" placeholder="Ask about what's being discussed..."
+                    class="input" onkeypress="if(event.key==='Enter') sendQuestion()">
+                <button class="btn btn-send" onclick="sendQuestion()">Ask</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="btn btn-screenshot" onclick="takeScreenshot()">Screenshot</button>
+                <button class="btn btn-stop" id="stopBtn" onclick="stopRecording()">
+                    Stop Recording
+                </button>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats">
+                <span id="segmentCount">0 segments</span>
+                <span id="screenshotCount">0 screenshots</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="sidepanel.js"></script>
+</body>
+</html>

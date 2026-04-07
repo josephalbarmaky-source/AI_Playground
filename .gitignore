@@ -28,3 +28,10 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Meeting Assistant
+ai-dashboard/chroma_db/
+ai-dashboard/static/screenshots/
+*.wav
+*.webm
+.google_photos_token.json

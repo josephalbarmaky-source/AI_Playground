@@ -1,14 +1,57 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit
 from datetime import datetime
 import os
+import json
+import base64
+import threading
 import requests as http_requests
-from models import db, Agent, Project, Task, ActivityLog, ScheduleEvent, GroceryItem, HouseInfo, FamilyActivity
+from models import (db, Agent, Project, Task, ActivityLog, ScheduleEvent,
+                    GroceryItem, HouseInfo, FamilyActivity,
+                    Meeting, TranscriptSegment, Screenshot, MeetingNotes, ChatMessage)
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'meeting-assistant-secret')
 app.config['GO4SCHOOLS_API_KEY'] = os.environ.get('GO4SCHOOLS_API_KEY', '')
 db.init_app(app)
+
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# Screenshots directory
+SCREENSHOTS_DIR = os.path.join(app.static_folder, 'screenshots')
+os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+
+# Lazy-loaded services (initialized on first use)
+_transcription_service = None
+_notes_service = None
+_chatbot_service = None
+
+
+def get_transcription_service():
+    global _transcription_service
+    if _transcription_service is None:
+        from meeting_service import TranscriptionService
+        _transcription_service = TranscriptionService(model_size="base")
+    return _transcription_service
+
+
+def get_notes_service():
+    global _notes_service
+    if _notes_service is None:
+        from meeting_service import NotesGeneratorService
+        _notes_service = NotesGeneratorService()
+    return _notes_service
+
+
+def get_chatbot_service():
+    global _chatbot_service
+    if _chatbot_service is None:
+        from meeting_service import ChatbotService
+        chroma_path = os.path.join(os.path.dirname(__file__), 'chroma_db')
+        _chatbot_service = ChatbotService(persist_dir=chroma_path)
+    return _chatbot_service
 
 
 def log_activity(project_id, message, activity_type='update'):
@@ -801,7 +844,516 @@ def photos_albums():
     return jsonify({'albums': albums})
 
 
+# ==================== MEETING ASSISTANT ====================
+
+@app.route('/meetings')
+def meetings_dashboard():
+    """Meetings dashboard — list all meetings."""
+    return render_template('meetings.html')
+
+
+@app.route('/meetings/<int:meeting_id>')
+def meeting_detail_view(meeting_id):
+    """Single meeting detail view."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    return render_template('meeting_detail.html', meeting=meeting)
+
+
+# --- Meetings API ---
+
+@app.route('/api/meetings', methods=['GET'])
+def get_meetings():
+    """List all meetings with optional filters."""
+    meeting_type = request.args.get('type')
+    status = request.args.get('status')
+    query = Meeting.query
+    if meeting_type:
+        query = query.filter_by(meeting_type=meeting_type)
+    if status:
+        query = query.filter_by(status=status)
+    meetings = query.order_by(Meeting.started_at.desc()).all()
+    return jsonify([m.to_dict() for m in meetings])
+
+
+@app.route('/api/meetings', methods=['POST'])
+def create_meeting():
+    """Create a new meeting session."""
+    data = request.json
+    meeting = Meeting(
+        title=data.get('title', 'Untitled Meeting'),
+        meeting_type=data.get('meeting_type', 'work'),
+        platform=data.get('platform', 'teams'),
+        status='live'
+    )
+    db.session.add(meeting)
+    db.session.commit()
+    return jsonify(meeting.to_dict()), 201
+
+
+@app.route('/api/meetings/<int:meeting_id>', methods=['GET'])
+def get_meeting(meeting_id):
+    """Get meeting with full details."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    return jsonify(meeting.to_dict(include_details=True))
+
+
+@app.route('/api/meetings/<int:meeting_id>/end', methods=['PUT'])
+def end_meeting(meeting_id):
+    """End a meeting and trigger notes generation."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    meeting.status = 'processing'
+    meeting.ended_at = datetime.utcnow()
+    if meeting.started_at:
+        delta = meeting.ended_at - meeting.started_at
+        meeting.duration_minutes = int(delta.total_seconds() / 60)
+    db.session.commit()
+
+    # Generate notes in background thread
+    def generate_notes_async(app, meeting_id):
+        with app.app_context():
+            m = Meeting.query.get(meeting_id)
+            if not m:
+                return
+            # Build full transcript
+            segments = TranscriptSegment.query.filter_by(meeting_id=meeting_id).order_by(
+                TranscriptSegment.timestamp_sec).all()
+            full_text = " ".join([s.text for s in segments])
+
+            if full_text.strip():
+                try:
+                    notes_svc = get_notes_service()
+                    notes_data = notes_svc.generate_notes(full_text, m.meeting_type)
+
+                    meeting_notes = MeetingNotes(
+                        meeting_id=meeting_id,
+                        summary=notes_data.get('summary', ''),
+                        topics=json.dumps(notes_data.get('topics', [])),
+                        action_items=json.dumps(notes_data.get('action_items', [])),
+                        upcoming_tasks=json.dumps(notes_data.get('upcoming_tasks', [])),
+                        key_decisions=json.dumps(notes_data.get('key_decisions', []))
+                    )
+                    db.session.add(meeting_notes)
+
+                    # Index for RAG chatbot
+                    try:
+                        chatbot_svc = get_chatbot_service()
+                        seg_dicts = [{'text': s.text, 'timestamp_sec': s.timestamp_sec} for s in segments]
+                        chatbot_svc.index_meeting(meeting_id, seg_dicts)
+                    except Exception as e:
+                        print(f"RAG indexing failed: {e}")
+                except Exception as e:
+                    print(f"Notes generation failed: {e}")
+
+            m.status = 'complete'
+            db.session.commit()
+
+    thread = threading.Thread(target=generate_notes_async, args=(app, meeting_id))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify(meeting.to_dict())
+
+
+@app.route('/api/meetings/<int:meeting_id>', methods=['DELETE'])
+def delete_meeting(meeting_id):
+    """Delete a meeting and all associated data."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    # Clean up screenshots from disk
+    for ss in meeting.screenshots:
+        try:
+            full_path = os.path.join(app.static_folder, ss.file_path)
+            if os.path.exists(full_path):
+                os.remove(full_path)
+        except Exception:
+            pass
+    # Clean up RAG index
+    try:
+        chatbot_svc = get_chatbot_service()
+        chatbot_svc.delete_meeting_index(meeting_id)
+    except Exception:
+        pass
+    db.session.delete(meeting)
+    db.session.commit()
+    return jsonify({'message': 'Meeting deleted'})
+
+
+# --- Audio & Screenshot upload from Chrome Extension (REST fallback) ---
+
+@app.route('/api/meetings/<int:meeting_id>/audio', methods=['POST'])
+def upload_audio_chunk(meeting_id):
+    """Receive an audio chunk from the extension and transcribe it."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    data = request.json
+    audio_b64 = data.get('audio')
+    elapsed_sec = data.get('elapsed_sec', 0)
+
+    if not audio_b64:
+        return jsonify({'error': 'No audio data'}), 400
+
+    audio_bytes = base64.b64decode(audio_b64)
+
+    def transcribe_async(app, meeting_id, audio_bytes, elapsed_sec):
+        with app.app_context():
+            try:
+                svc = get_transcription_service()
+                segments = svc.transcribe_audio(audio_bytes)
+                for seg in segments:
+                    ts = TranscriptSegment(
+                        meeting_id=meeting_id,
+                        text=seg['text'],
+                        timestamp_sec=elapsed_sec + seg['start']
+                    )
+                    db.session.add(ts)
+                db.session.commit()
+            except Exception as e:
+                print(f"Transcription error: {e}")
+
+    thread = threading.Thread(target=transcribe_async, args=(app, meeting_id, audio_bytes, elapsed_sec))
+    thread.daemon = True
+    thread.start()
+
+    return jsonify({'status': 'processing'})
+
+
+@app.route('/api/meetings/<int:meeting_id>/screenshot', methods=['POST'])
+def upload_screenshot(meeting_id):
+    """Receive a screenshot from the extension."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    data = request.json
+    image_b64 = data.get('image')
+    elapsed_sec = data.get('elapsed_sec', 0)
+
+    if not image_b64:
+        return jsonify({'error': 'No image data'}), 400
+
+    filename = f"meeting_{meeting_id}_{int(elapsed_sec)}_{datetime.utcnow().strftime('%H%M%S')}.png"
+    filepath = os.path.join(SCREENSHOTS_DIR, filename)
+
+    image_data = base64.b64decode(image_b64)
+    with open(filepath, 'wb') as f:
+        f.write(image_data)
+
+    relative_path = f"screenshots/{filename}"
+    ss = Screenshot(
+        meeting_id=meeting_id,
+        file_path=relative_path,
+        timestamp_sec=elapsed_sec
+    )
+    db.session.add(ss)
+    db.session.commit()
+
+    return jsonify({'status': 'saved', 'file_path': relative_path})
+
+
+@app.route('/api/meetings/<int:meeting_id>/chat', methods=['POST'])
+def meeting_chat(meeting_id):
+    """Ask the chatbot a question about a specific meeting."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    data = request.json
+    question = data.get('question', '').strip()
+    if not question:
+        return jsonify({'error': 'Question is required'}), 400
+
+    chatbot_svc = get_chatbot_service()
+    result = chatbot_svc.ask(question, meeting_id=meeting_id)
+
+    # Save chat history
+    msg = ChatMessage(
+        meeting_id=meeting_id,
+        question=question,
+        answer=result['answer']
+    )
+    db.session.add(msg)
+    db.session.commit()
+
+    return jsonify({
+        'answer': result['answer'],
+        'sources': result.get('sources', []),
+        'chat_id': msg.id
+    })
+
+
+@app.route('/api/chat', methods=['POST'])
+def global_chat():
+    """Ask the chatbot across all meetings."""
+    data = request.json
+    question = data.get('question', '').strip()
+    if not question:
+        return jsonify({'error': 'Question is required'}), 400
+
+    chatbot_svc = get_chatbot_service()
+    result = chatbot_svc.ask(question, meeting_id=None)
+
+    msg = ChatMessage(
+        meeting_id=None,
+        question=question,
+        answer=result['answer']
+    )
+    db.session.add(msg)
+    db.session.commit()
+
+    return jsonify({
+        'answer': result['answer'],
+        'sources': result.get('sources', []),
+        'chat_id': msg.id
+    })
+
+
+@app.route('/api/meetings/<int:meeting_id>/chat/history', methods=['GET'])
+def meeting_chat_history(meeting_id):
+    """Get chat history for a meeting."""
+    messages = ChatMessage.query.filter_by(meeting_id=meeting_id).order_by(ChatMessage.created_at).all()
+    return jsonify([m.to_dict() for m in messages])
+
+
+@app.route('/api/meetings/<int:meeting_id>/regenerate-notes', methods=['POST'])
+def regenerate_notes(meeting_id):
+    """Re-generate notes for a completed meeting."""
+    meeting = Meeting.query.get_or_404(meeting_id)
+    segments = TranscriptSegment.query.filter_by(meeting_id=meeting_id).order_by(
+        TranscriptSegment.timestamp_sec).all()
+    full_text = " ".join([s.text for s in segments])
+    if not full_text.strip():
+        return jsonify({'error': 'No transcript available'}), 400
+
+    notes_svc = get_notes_service()
+    notes_data = notes_svc.generate_notes(full_text, meeting.meeting_type)
+
+    # Update or create notes
+    if meeting.notes:
+        meeting.notes.summary = notes_data.get('summary', '')
+        meeting.notes.topics = json.dumps(notes_data.get('topics', []))
+        meeting.notes.action_items = json.dumps(notes_data.get('action_items', []))
+        meeting.notes.upcoming_tasks = json.dumps(notes_data.get('upcoming_tasks', []))
+        meeting.notes.key_decisions = json.dumps(notes_data.get('key_decisions', []))
+    else:
+        mn = MeetingNotes(
+            meeting_id=meeting_id,
+            summary=notes_data.get('summary', ''),
+            topics=json.dumps(notes_data.get('topics', [])),
+            action_items=json.dumps(notes_data.get('action_items', [])),
+            upcoming_tasks=json.dumps(notes_data.get('upcoming_tasks', [])),
+            key_decisions=json.dumps(notes_data.get('key_decisions', []))
+        )
+        db.session.add(mn)
+
+    db.session.commit()
+    return jsonify({'message': 'Notes regenerated', 'notes': meeting.notes.to_dict() if meeting.notes else notes_data})
+
+
+# --- Service Status API ---
+
+@app.route('/api/settings/services-status', methods=['GET'])
+def services_status():
+    """Check which AI services are available."""
+    whisper_ok = False
+    ollama_ok = False
+    try:
+        whisper_ok = get_transcription_service().is_available()
+    except Exception:
+        pass
+    try:
+        ollama_ok = get_notes_service().is_available()
+    except Exception:
+        pass
+    return jsonify({
+        'whisper': whisper_ok,
+        'ollama': ollama_ok
+    })
+
+
+# --- SocketIO Events for Live Meeting ---
+
+@socketio.on('connect')
+def handle_connect():
+    print('Client connected')
+    emit('connected', {'status': 'ok'})
+
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    print('Client disconnected')
+
+
+@socketio.on('start_meeting')
+def handle_start_meeting(data):
+    """Start a new meeting session from the extension."""
+    with app.app_context():
+        meeting = Meeting(
+            title=data.get('title', 'Untitled Meeting'),
+            meeting_type=data.get('meeting_type', 'work'),
+            platform='teams',
+            status='live'
+        )
+        db.session.add(meeting)
+        db.session.commit()
+        emit('meeting_started', {'meeting_id': meeting.id, 'title': meeting.title})
+
+
+@socketio.on('audio_chunk')
+def handle_audio_chunk(data):
+    """Receive audio chunk from extension, transcribe, and broadcast."""
+    meeting_id = data.get('meeting_id')
+    audio_b64 = data.get('audio')
+    elapsed_sec = data.get('elapsed_sec', 0)
+
+    if not meeting_id or not audio_b64:
+        return
+
+    audio_bytes = base64.b64decode(audio_b64)
+
+    def transcribe_async(app, meeting_id, audio_bytes, elapsed_sec):
+        with app.app_context():
+            try:
+                svc = get_transcription_service()
+                segments = svc.transcribe_audio(audio_bytes)
+                for seg in segments:
+                    ts = TranscriptSegment(
+                        meeting_id=meeting_id,
+                        text=seg['text'],
+                        timestamp_sec=elapsed_sec + seg['start']
+                    )
+                    db.session.add(ts)
+                db.session.commit()
+
+                # Broadcast to sidebar
+                for seg in segments:
+                    socketio.emit('transcript_update', {
+                        'meeting_id': meeting_id,
+                        'text': seg['text'],
+                        'timestamp_sec': elapsed_sec + seg['start']
+                    })
+            except Exception as e:
+                print(f"Transcription error: {e}")
+                socketio.emit('transcription_error', {'error': str(e)})
+
+    thread = threading.Thread(target=transcribe_async, args=(app, meeting_id, audio_bytes, elapsed_sec))
+    thread.daemon = True
+    thread.start()
+
+
+@socketio.on('screenshot')
+def handle_screenshot(data):
+    """Receive a screenshot from the extension."""
+    meeting_id = data.get('meeting_id')
+    image_b64 = data.get('image')
+    elapsed_sec = data.get('elapsed_sec', 0)
+
+    if not meeting_id or not image_b64:
+        return
+
+    with app.app_context():
+        # Save image to disk
+        filename = f"meeting_{meeting_id}_{int(elapsed_sec)}_{datetime.utcnow().strftime('%H%M%S')}.png"
+        filepath = os.path.join(SCREENSHOTS_DIR, filename)
+
+        image_data = base64.b64decode(image_b64)
+        with open(filepath, 'wb') as f:
+            f.write(image_data)
+
+        # Save to DB
+        relative_path = f"screenshots/{filename}"
+        ss = Screenshot(
+            meeting_id=meeting_id,
+            file_path=relative_path,
+            timestamp_sec=elapsed_sec
+        )
+        db.session.add(ss)
+        db.session.commit()
+
+        emit('screenshot_saved', {
+            'meeting_id': meeting_id,
+            'file_path': relative_path,
+            'timestamp_sec': elapsed_sec
+        })
+
+
+@socketio.on('end_meeting')
+def handle_end_meeting(data):
+    """End a meeting from the extension."""
+    meeting_id = data.get('meeting_id')
+    if not meeting_id:
+        return
+
+    with app.app_context():
+        meeting = Meeting.query.get(meeting_id)
+        if meeting:
+            meeting.status = 'processing'
+            meeting.ended_at = datetime.utcnow()
+            if meeting.started_at:
+                delta = meeting.ended_at - meeting.started_at
+                meeting.duration_minutes = int(delta.total_seconds() / 60)
+            db.session.commit()
+            emit('meeting_ended', {'meeting_id': meeting_id})
+
+            # Trigger notes generation (reuse the end_meeting logic)
+            def gen(app, mid):
+                with app.app_context():
+                    m = Meeting.query.get(mid)
+                    if not m:
+                        return
+                    segments = TranscriptSegment.query.filter_by(meeting_id=mid).order_by(
+                        TranscriptSegment.timestamp_sec).all()
+                    full_text = " ".join([s.text for s in segments])
+                    if full_text.strip():
+                        try:
+                            notes_svc = get_notes_service()
+                            notes_data = notes_svc.generate_notes(full_text, m.meeting_type)
+                            mn = MeetingNotes(
+                                meeting_id=mid,
+                                summary=notes_data.get('summary', ''),
+                                topics=json.dumps(notes_data.get('topics', [])),
+                                action_items=json.dumps(notes_data.get('action_items', [])),
+                                upcoming_tasks=json.dumps(notes_data.get('upcoming_tasks', [])),
+                                key_decisions=json.dumps(notes_data.get('key_decisions', []))
+                            )
+                            db.session.add(mn)
+                            try:
+                                chatbot_svc = get_chatbot_service()
+                                seg_dicts = [{'text': s.text, 'timestamp_sec': s.timestamp_sec} for s in segments]
+                                chatbot_svc.index_meeting(mid, seg_dicts)
+                            except Exception as e:
+                                print(f"RAG indexing failed: {e}")
+                        except Exception as e:
+                            print(f"Notes generation failed: {e}")
+                    m.status = 'complete'
+                    db.session.commit()
+                    socketio.emit('notes_ready', {'meeting_id': mid})
+
+            thread = threading.Thread(target=gen, args=(app, meeting_id))
+            thread.daemon = True
+            thread.start()
+
+
+@socketio.on('sidebar_chat')
+def handle_sidebar_chat(data):
+    """Handle live Q&A from the sidebar during a meeting."""
+    meeting_id = data.get('meeting_id')
+    question = data.get('question', '').strip()
+    if not question:
+        return
+
+    with app.app_context():
+        chatbot_svc = get_chatbot_service()
+        result = chatbot_svc.ask(question, meeting_id=meeting_id)
+
+        msg = ChatMessage(
+            meeting_id=meeting_id,
+            question=question,
+            answer=result['answer']
+        )
+        db.session.add(msg)
+        db.session.commit()
+
+        emit('chat_response', {
+            'meeting_id': meeting_id,
+            'question': question,
+            'answer': result['answer'],
+            'sources': result.get('sources', [])
+        })
+
+
 init_db()
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5000)

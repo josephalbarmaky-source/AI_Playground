@@ -24,6 +24,10 @@
                     <span class="nav-icon">📋</span>
                     Kanban Board
                 </a>
+                <a href="/meetings" class="nav-item {% if request.path.startswith('/meetings') %}active{% endif %}">
+                    <span class="nav-icon">🎓</span>
+                    Meetings
+                </a>
                 <a href="/family" class="nav-item {% if request.path == '/family' %}active{% endif %}">
                     <span class="nav-icon">🏠</span>
                     Family

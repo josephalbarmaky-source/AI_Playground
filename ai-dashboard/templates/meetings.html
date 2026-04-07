@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}Meetings - AI Dashboard{% endblock %}
+{% block page_title %}Meetings{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/meetings.css') }}">
+
+<div class="meetings-page">
+    <!-- Top Bar -->
+    <div class="meetings-toolbar">
+        <div class="meetings-filters">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="school">School</button>
+            <button class="filter-btn" data-filter="work">Work</button>
+            <button class="filter-btn" data-filter="live">Live Now</button>
+        </div>
+        <div class="meetings-search">
+            <input type="text" id="meetingSearch" placeholder="Search meetings..." class="search-input">
+        </div>
+        <button class="btn btn-primary" onclick="showNewMeetingModal()">+ New Meeting</button>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="meetings-stats">
+        <div class="stat-card">
+            <div class="stat-number" id="totalMeetings">0</div>
+            <div class="stat-label">Total Meetings</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="liveMeetings">0</div>
+            <div class="stat-label">Live Now</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="schoolMeetings">0</div>
+            <div class="stat-label">School</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="workMeetings">0</div>
+            <div class="stat-label">Work</div>
+        </div>
+    </div>
+
+    <!-- Global Chatbot -->
+    <div class="global-chat-section">
+        <div class="chat-header" onclick="toggleGlobalChat()">
+            <span>Ask about any meeting...</span>
+            <span class="chat-toggle" id="chatToggle">+</span>
+        </div>
+        <div class="chat-body" id="globalChatBody" style="display:none;">
+            <div class="chat-messages" id="globalChatMessages"></div>
+            <div class="chat-input-row">
+                <input type="text" id="globalChatInput" placeholder="Ask a question about your meetings..." class="chat-input"
+                    onkeypress="if(event.key==='Enter') sendGlobalChat()">
+                <button class="btn btn-primary chat-send" onclick="sendGlobalChat()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meetings Grid -->
+    <div class="meetings-grid" id="meetingsGrid">
+        <div class="loading">Loading meetings...</div>
+    </div>
+
+    <!-- Services Status -->
+    <div class="services-status" id="servicesStatus"></div>
+</div>
+
+<!-- New Meeting Modal -->
+<div class="modal" id="newMeetingModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Start New Meeting</h3>
+            <button class="modal-close" onclick="closeModal('newMeetingModal')">&times;</button>
+        </div>
+        <form id="newMeetingForm" onsubmit="return createMeeting(event)">
+            <div class="form-group">
+                <label for="meetingTitle">Meeting Title</label>
+                <input type="text" id="meetingTitle" required placeholder="e.g. Physics Lecture, Sprint Planning">
+            </div>
+            <div class="form-group">
+                <label for="meetingType">Type</label>
+                <select id="meetingType">
+                    <option value="school">School / University</option>
+                    <option value="work">Work Meeting</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('newMeetingModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Meeting</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/meetings.js') }}"></script>
+{% endblock %}

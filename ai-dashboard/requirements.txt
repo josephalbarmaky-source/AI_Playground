@@ -6,3 +6,12 @@ gunicorn==22.0.0
 requests==2.31.0
 google-auth==2.29.0
 google-auth-oauthlib==1.2.0
+
+# Meeting Assistant dependencies
+faster-whisper==1.1.0
+ollama==0.4.7
+chromadb==0.6.3
+sentence-transformers==3.4.1
+flask-socketio==5.5.1
+eventlet==0.37.0
+Pillow==11.1.0
