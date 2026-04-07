@@ -129,14 +129,13 @@ WEEK_B = {
 
 
 def seed():
-    with app.app_context():
-        # Clear existing schedule
-        ScheduleEvent.query.delete()
-        db.session.commit()
+    # Clear existing schedule
+    ScheduleEvent.query.delete()
+    db.session.commit()
 
-        count = 0
-        for week_type, week_data in [('A', WEEK_A), ('B', WEEK_B)]:
-            for day, classes in week_data.items():
+    count = 0
+    for week_type, week_data in [('A', WEEK_A), ('B', WEEK_B)]:
+        for day, classes in week_data.items():
                 periods = PERIODS_FRIDAY if day == 4 else PERIODS_WEEKDAY
                 for i, (subject, room) in enumerate(classes):
                     start, end = periods[i]
@@ -152,9 +151,10 @@ def seed():
                     db.session.add(event)
                     count += 1
 
-        db.session.commit()
-        print(f'Seeded {count} schedule events.')
+    db.session.commit()
+    print(f'Seeded {count} schedule events.')
 
 
 if __name__ == '__main__':
-    seed()
+    with app.app_context():
+        seed()

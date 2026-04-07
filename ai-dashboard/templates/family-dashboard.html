@@ -128,6 +128,27 @@
             </section>
         </main>
 
+            <!-- Photos Widget -->
+            <section class="fd-card fd-card--photos" id="photosWidget">
+                <div class="fd-card__header">
+                    <h2 class="fd-card__title">📸 Family Photos</h2>
+                    <button class="fd-card__btn" onclick="FamilyDashboard.Photos.showSetup()" title="Settings">⚙</button>
+                </div>
+                <div class="fd-card__body" id="photosBody">
+                    <div class="fd-empty" id="photosSetupPrompt">
+                        <div style="text-align:center">
+                            <div style="font-size:2rem;margin-bottom:8px">🖼</div>
+                            <div>Connect Google Photos</div>
+                            <button class="fd-g4s-connect-btn" onclick="FamilyDashboard.Photos.showSetup()">Set up</button>
+                        </div>
+                    </div>
+                    <div id="photosContent" style="display:none">
+                        <div class="fd-photos-grid" id="photosGrid"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
         <!-- Nav back -->
         <a href="/" class="fd-nav-back" title="Back to AI Dashboard">🤖</a>
     </div>
@@ -262,6 +283,33 @@
                 <div class="modal-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal('fdActivityModal')">Cancel</button>
                     <button type="submit" class="btn btn-primary">Add</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Google Photos Setup Modal -->
+    <div class="modal" id="fdPhotosModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Connect Google Photos</h3>
+                <button class="modal-close" onclick="closeModal('fdPhotosModal')">&times;</button>
+            </div>
+            <form id="photosForm" onsubmit="FamilyDashboard.Photos.saveCredentials(event)">
+                <div class="form-group">
+                    <label for="photosClientId">Client ID</label>
+                    <input type="text" id="photosClientId" required placeholder="From Google Cloud Console">
+                </div>
+                <div class="form-group">
+                    <label for="photosClientSecret">Client Secret</label>
+                    <input type="password" id="photosClientSecret" required placeholder="From Google Cloud Console">
+                </div>
+                <small style="color:var(--text-muted);font-size:0.75rem;display:block;margin-bottom:12px">
+                    Go to console.cloud.google.com, enable Photos Library API, create OAuth credentials. Set redirect URI to your dashboard URL + /api/family/photos/callback
+                </small>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('fdPhotosModal')">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save & Connect</button>
                 </div>
             </form>
         </div>

@@ -12,6 +12,7 @@ const FamilyDashboard = {
         this.Weather.init();
         this.WiFi.init();
         this.G4S.init();
+        this.Photos.init();
         this.loadAll();
         this.startAutoRefresh();
 
@@ -594,6 +595,131 @@ const FamilyDashboard = {
 
             document.getElementById('wifiStatus').textContent = status;
             document.getElementById('wifiSpeed').textContent = speed;
+        }
+    },
+
+    // ==================== PHOTOS ====================
+    Photos: {
+        connected: false,
+        photos: [],
+        slideIndex: 0,
+        slideTimer: null,
+
+        async init() {
+            try {
+                const status = await apiRequest('/api/family/photos/status');
+                this.connected = status.connected;
+                if (this.connected) {
+                    document.getElementById('photosSetupPrompt').style.display = 'none';
+                    document.getElementById('photosContent').style.display = '';
+                    this.loadRecent();
+                } else if (status.configured) {
+                    // Credentials saved but not yet authorized
+                    document.getElementById('photosSetupPrompt').innerHTML = `
+                        <div style="text-align:center">
+                            <div style="font-size:2rem;margin-bottom:8px">🔑</div>
+                            <div>Credentials saved</div>
+                            <button class="fd-g4s-connect-btn" onclick="FamilyDashboard.Photos.startAuth()">Sign in with Google</button>
+                        </div>`;
+                }
+            } catch (e) {
+                console.warn('Photos status check failed:', e);
+            }
+        },
+
+        async loadRecent() {
+            try {
+                const data = await apiRequest('/api/family/photos/recent?count=20');
+                this.photos = data.photos || [];
+                this.renderGrid();
+            } catch (e) {
+                console.warn('Failed to load photos:', e);
+            }
+        },
+
+        renderGrid() {
+            const grid = document.getElementById('photosGrid');
+            if (this.photos.length === 0) {
+                grid.innerHTML = '<div class="fd-empty">No photos found</div>';
+                return;
+            }
+            grid.innerHTML = this.photos.map((p, i) => {
+                const date = p.created ? new Date(p.created).toLocaleDateString() : '';
+                return `
+                    <div class="fd-photo-item" onclick="FamilyDashboard.Photos.openLightbox(${i})">
+                        <img src="${p.thumbnail}" alt="${this.escHtml(p.filename)}" loading="lazy">
+                        <div class="fd-photo-item__overlay">
+                            <div class="fd-photo-item__date">${date}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+        },
+
+        openLightbox(index) {
+            const p = this.photos[index];
+            if (!p) return;
+            const lb = document.createElement('div');
+            lb.className = 'fd-photo-lightbox';
+            lb.onclick = () => lb.remove();
+            lb.innerHTML = `<img src="${p.url}" alt="${this.escHtml(p.filename)}">`;
+            document.body.appendChild(lb);
+        },
+
+        showSetup() {
+            if (this.connected) {
+                // Already connected, just reload
+                this.loadRecent();
+                return;
+            }
+            document.getElementById('photosForm').reset();
+            showModal('fdPhotosModal');
+        },
+
+        async saveCredentials(e) {
+            e.preventDefault();
+            const clientId = document.getElementById('photosClientId').value.trim();
+            const clientSecret = document.getElementById('photosClientSecret').value.trim();
+            await apiRequest('/api/family/photos/setup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+            });
+            closeModal('fdPhotosModal');
+            this.startAuth();
+        },
+
+        async startAuth() {
+            try {
+                const data = await apiRequest('/api/family/photos/auth-url');
+                if (data.auth_url) {
+                    window.open(data.auth_url, '_blank');
+                    // Poll for connection
+                    let attempts = 0;
+                    const poll = setInterval(async () => {
+                        attempts++;
+                        const status = await apiRequest('/api/family/photos/status');
+                        if (status.connected || attempts > 60) {
+                            clearInterval(poll);
+                            if (status.connected) {
+                                this.connected = true;
+                                document.getElementById('photosSetupPrompt').style.display = 'none';
+                                document.getElementById('photosContent').style.display = '';
+                                this.loadRecent();
+                                FamilyDashboard.pulseCard('photosWidget');
+                            }
+                        }
+                    }, 3000);
+                }
+            } catch (e) {
+                alert('Failed to start Google auth');
+            }
+        },
+
+        escHtml(s) {
+            if (!s) return '';
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
         }
     },
 

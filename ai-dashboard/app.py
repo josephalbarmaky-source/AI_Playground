@@ -570,6 +570,237 @@ def g4s_grades():
     return jsonify(data)
 
 
+# --- Google Photos Integration ---
+
+GOOGLE_PHOTOS_SCOPES = ['https://www.googleapis.com/auth/photoslibrary.readonly']
+
+@app.route('/api/family/photos/status', methods=['GET'])
+def photos_status():
+    """Check if Google Photos is connected."""
+    token_path = os.path.join(os.path.dirname(__file__), '.google_photos_token.json')
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', app.config.get('GOOGLE_CLIENT_ID', ''))
+    return jsonify({
+        'connected': os.path.exists(token_path),
+        'configured': bool(client_id)
+    })
+
+
+@app.route('/api/family/photos/setup', methods=['POST'])
+def photos_setup():
+    """Save Google OAuth client credentials."""
+    data = request.json
+    client_id = data.get('client_id', '').strip()
+    client_secret = data.get('client_secret', '').strip()
+    env_path = os.path.join(os.path.dirname(__file__), '.env')
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, 'r') as f:
+            lines = [l for l in f.readlines() if not l.startswith('GOOGLE_CLIENT_ID=') and not l.startswith('GOOGLE_CLIENT_SECRET=')]
+    lines.append(f'GOOGLE_CLIENT_ID={client_id}\n')
+    lines.append(f'GOOGLE_CLIENT_SECRET={client_secret}\n')
+    with open(env_path, 'w') as f:
+        f.writelines(lines)
+    app.config['GOOGLE_CLIENT_ID'] = client_id
+    app.config['GOOGLE_CLIENT_SECRET'] = client_secret
+    return jsonify({'configured': True})
+
+
+@app.route('/api/family/photos/auth-url', methods=['GET'])
+def photos_auth_url():
+    """Generate Google OAuth authorization URL."""
+    from google_auth_oauthlib.flow import Flow
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', app.config.get('GOOGLE_CLIENT_ID', ''))
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', app.config.get('GOOGLE_CLIENT_SECRET', ''))
+    if not client_id or not client_secret:
+        return jsonify({'error': 'Google credentials not configured'}), 400
+    flow = Flow.from_client_config(
+        {'web': {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+            'token_uri': 'https://oauth2.googleapis.com/token',
+        }},
+        scopes=GOOGLE_PHOTOS_SCOPES,
+        redirect_uri=request.host_url.rstrip('/') + '/api/family/photos/callback'
+    )
+    auth_url, _ = flow.authorization_url(access_type='offline', prompt='consent')
+    return jsonify({'auth_url': auth_url})
+
+
+@app.route('/api/family/photos/callback', methods=['GET'])
+def photos_callback():
+    """Handle Google OAuth callback and store tokens."""
+    from google_auth_oauthlib.flow import Flow
+    import json
+    client_id = os.environ.get('GOOGLE_CLIENT_ID', app.config.get('GOOGLE_CLIENT_ID', ''))
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', app.config.get('GOOGLE_CLIENT_SECRET', ''))
+    flow = Flow.from_client_config(
+        {'web': {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'auth_uri': 'https://accounts.google.com/o/oauth2/auth',
+            'token_uri': 'https://oauth2.googleapis.com/token',
+        }},
+        scopes=GOOGLE_PHOTOS_SCOPES,
+        redirect_uri=request.host_url.rstrip('/') + '/api/family/photos/callback'
+    )
+    flow.fetch_token(authorization_response=request.url)
+    creds = flow.credentials
+    token_data = {
+        'token': creds.token,
+        'refresh_token': creds.refresh_token,
+        'token_uri': creds.token_uri,
+        'client_id': creds.client_id,
+        'client_secret': creds.client_secret,
+        'scopes': list(creds.scopes),
+    }
+    token_path = os.path.join(os.path.dirname(__file__), '.google_photos_token.json')
+    with open(token_path, 'w') as f:
+        json.dump(token_data, f)
+    return '<html><body><h2>Connected! You can close this tab.</h2><script>window.close()</script></body></html>'
+
+
+def get_photos_creds():
+    """Load and refresh Google Photos credentials."""
+    import json
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    token_path = os.path.join(os.path.dirname(__file__), '.google_photos_token.json')
+    if not os.path.exists(token_path):
+        return None
+    with open(token_path, 'r') as f:
+        token_data = json.load(f)
+    creds = Credentials(
+        token=token_data['token'],
+        refresh_token=token_data.get('refresh_token'),
+        token_uri=token_data.get('token_uri', 'https://oauth2.googleapis.com/token'),
+        client_id=token_data.get('client_id'),
+        client_secret=token_data.get('client_secret'),
+        scopes=token_data.get('scopes'),
+    )
+    if creds.expired and creds.refresh_token:
+        from google.auth.transport.requests import Request
+        creds.refresh(Request())
+        token_data['token'] = creds.token
+        with open(token_path, 'w') as f:
+            json.dump(token_data, f)
+    return creds
+
+
+@app.route('/api/family/photos/recent', methods=['GET'])
+def photos_recent():
+    """Get recent photos from Google Photos."""
+    creds = get_photos_creds()
+    if not creds:
+        return jsonify({'error': 'Not connected', 'photos': []}), 200
+    count = request.args.get('count', 20, type=int)
+    resp = http_requests.post(
+        'https://photoslibrary.googleapis.com/v1/mediaItems:search',
+        headers={'Authorization': f'Bearer {creds.token}'},
+        json={'pageSize': min(count, 50), 'orderBy': 'MediaMetadata.creation_time desc'},
+        timeout=10
+    )
+    if resp.status_code != 200:
+        return jsonify({'error': 'API error', 'photos': []}), 200
+    data = resp.json()
+    photos = []
+    for item in data.get('mediaItems', []):
+        meta = item.get('mediaMetadata', {})
+        photo = {
+            'id': item['id'],
+            'url': item.get('baseUrl', '') + '=w800-h600',
+            'thumbnail': item.get('baseUrl', '') + '=w200-h200-c',
+            'filename': item.get('filename', ''),
+            'created': meta.get('creationTime', ''),
+            'width': meta.get('width'),
+            'height': meta.get('height'),
+        }
+        if 'photo' in meta:
+            photo['camera'] = meta['photo'].get('cameraModel', '')
+        if 'location' in meta:
+            photo['location'] = {
+                'lat': meta['location'].get('latitude'),
+                'lng': meta['location'].get('longitude'),
+            }
+        photos.append(photo)
+    return jsonify({'photos': photos})
+
+
+@app.route('/api/family/photos/search', methods=['GET'])
+def photos_search():
+    """Search photos by date, category, or location."""
+    creds = get_photos_creds()
+    if not creds:
+        return jsonify({'error': 'Not connected', 'photos': []}), 200
+    filters = {}
+    # Date filter
+    year = request.args.get('year', type=int)
+    month = request.args.get('month', type=int)
+    day = request.args.get('day', type=int)
+    if year:
+        date_filter = {'dates': [{'year': year, 'month': month or 0, 'day': day or 0}]}
+        filters['dateFilter'] = date_filter
+    # Category filter (e.g. LANDSCAPES, SELFIES, PEOPLE, PETS, FOOD, TRAVEL, etc.)
+    category = request.args.get('category')
+    if category:
+        filters['contentFilter'] = {'includedContentCategories': [category.upper()]}
+    body = {'pageSize': 25}
+    if filters:
+        body['filters'] = filters
+    resp = http_requests.post(
+        'https://photoslibrary.googleapis.com/v1/mediaItems:search',
+        headers={'Authorization': f'Bearer {creds.token}'},
+        json=body,
+        timeout=10
+    )
+    if resp.status_code != 200:
+        return jsonify({'error': 'API error', 'photos': []}), 200
+    data = resp.json()
+    photos = []
+    for item in data.get('mediaItems', []):
+        meta = item.get('mediaMetadata', {})
+        photo = {
+            'id': item['id'],
+            'url': item.get('baseUrl', '') + '=w800-h600',
+            'thumbnail': item.get('baseUrl', '') + '=w200-h200-c',
+            'filename': item.get('filename', ''),
+            'created': meta.get('creationTime', ''),
+        }
+        if 'location' in meta:
+            photo['location'] = {
+                'lat': meta['location'].get('latitude'),
+                'lng': meta['location'].get('longitude'),
+            }
+        photos.append(photo)
+    return jsonify({'photos': photos})
+
+
+@app.route('/api/family/photos/albums', methods=['GET'])
+def photos_albums():
+    """List all albums."""
+    creds = get_photos_creds()
+    if not creds:
+        return jsonify({'error': 'Not connected', 'albums': []}), 200
+    resp = http_requests.get(
+        'https://photoslibrary.googleapis.com/v1/albums',
+        headers={'Authorization': f'Bearer {creds.token}'},
+        params={'pageSize': 50},
+        timeout=10
+    )
+    if resp.status_code != 200:
+        return jsonify({'error': 'API error', 'albums': []}), 200
+    data = resp.json()
+    albums = []
+    for a in data.get('albums', []):
+        albums.append({
+            'id': a['id'],
+            'title': a.get('title', 'Untitled'),
+            'count': a.get('mediaItemsCount', 0),
+            'cover_url': a.get('coverPhotoBaseUrl', '') + '=w200-h200-c',
+        })
+    return jsonify({'albums': albums})
+
+
 init_db()
 
 if __name__ == '__main__':
