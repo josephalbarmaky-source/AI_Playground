@@ -210,9 +210,10 @@ const FamilyDashboard = {
             const currentTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
             const currentWeek = this.getCurrentWeek();
 
-            // Update header to show current week
+            // Update header to show day name and week
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             const title = document.querySelector('.fd-card--schedule .fd-card__title');
-            if (title) title.textContent = `📅 Ayan's Schedule (Week ${currentWeek})`;
+            if (title) title.textContent = `📅 ${dayNames[today]} — Week ${currentWeek}`;
 
             const todayEvents = this.data.filter(e => e.day_of_week === today && (e.week_type || 'A') === currentWeek);
 
@@ -252,10 +253,11 @@ const FamilyDashboard = {
                             <div class="fd-schedule-name">${this.escHtml(e.title)}</div>
                             ${e.location ? `<div class="fd-schedule-loc">${this.escHtml(e.location)}</div>` : ''}
                         </div>
-                        <span class="fd-schedule-time" style="min-width:auto">${this.formatTime(e.end_time)}</span>
+                        <span class="fd-schedule-time fd-schedule-time--end">${this.formatTime(e.end_time)}</span>
                         <button class="fd-schedule-delete" onclick="event.stopPropagation();FamilyDashboard.Schedule.delete(${e.id})">&times;</button>
                     </div>`;
-            }).join('') + '</div>';
+            }).join('') + '</div>' +
+            '<button class="fd-week-view-btn" onclick="FamilyDashboard.Schedule.showWeekView()">View full week</button>';
         },
 
         formatTime(t) {
@@ -321,6 +323,50 @@ const FamilyDashboard = {
             if (!confirm('Delete this class?')) return;
             await apiRequest(`/api/family/schedule/${id}`, { method: 'DELETE' });
             FamilyDashboard.loadAll();
+        },
+
+        showWeekView() {
+            const currentWeek = this._viewWeek || this.getCurrentWeek();
+            const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+            const today = (new Date().getDay() + 6) % 7;
+
+            let html = `<div class="fd-week-overlay" onclick="if(event.target===this)this.remove()">
+                <div class="fd-week-modal">
+                    <div class="fd-week-header">
+                        <h2>Week ${currentWeek} Timetable</h2>
+                        <button class="fd-week-close" onclick="this.closest('.fd-week-overlay').remove()">&times;</button>
+                    </div>
+                    <div class="fd-week-toggle">
+                        <button class="fd-week-toggle-btn ${currentWeek === 'A' ? 'fd-week-toggle-btn--active' : ''}" onclick="FamilyDashboard.Schedule.switchWeekView('A')">Week A</button>
+                        <button class="fd-week-toggle-btn ${currentWeek === 'B' ? 'fd-week-toggle-btn--active' : ''}" onclick="FamilyDashboard.Schedule.switchWeekView('B')">Week B</button>
+                    </div>
+                    <div class="fd-week-grid" id="weekGrid">`;
+
+            for (let d = 0; d < 5; d++) {
+                const dayEvents = this.data.filter(e => e.day_of_week === d && (e.week_type || 'A') === currentWeek);
+                const isToday = d === today;
+                html += `<div class="fd-week-day ${isToday ? 'fd-week-day--today' : ''}">
+                    <div class="fd-week-day-name">${dayNames[d]}${isToday ? ' (Today)' : ''}</div>`;
+                dayEvents.forEach(e => {
+                    html += `<div class="fd-week-class" style="border-left-color:${e.color}">
+                        <span class="fd-week-class-time">${this.formatTime(e.start_time)}</span>
+                        <span class="fd-week-class-name">${this.escHtml(e.title)}</span>
+                        <span class="fd-week-class-room">${this.escHtml(e.location || '')}</span>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+
+            html += '</div></div></div>';
+            document.body.insertAdjacentHTML('beforeend', html);
+        },
+
+        switchWeekView(week) {
+            const overlay = document.querySelector('.fd-week-overlay');
+            if (overlay) overlay.remove();
+            this._viewWeek = week;
+            this.showWeekView();
+            delete this._viewWeek;
         }
     },
 

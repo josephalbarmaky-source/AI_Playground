@@ -340,8 +340,14 @@
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--text-secondary, #94a3b8);
-    min-width: 48px;
+    min-width: 65px;
     font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.fd-schedule-time--end {
+    text-align: right;
+    min-width: 65px;
 }
 
 .fd-schedule-info {
@@ -371,6 +377,168 @@
 
 .fd-schedule-item:hover .fd-schedule-delete {
     opacity: 1;
+}
+
+/* Week view button */
+.fd-week-view-btn {
+    display: block;
+    width: 100%;
+    margin-top: 12px;
+    padding: 8px;
+    border: 1px solid var(--fd-glass-border);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--accent-secondary, #818cf8);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s var(--fd-spring-ease);
+}
+
+.fd-week-view-btn:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: var(--accent-primary, #6366f1);
+}
+
+/* Full week overlay */
+.fd-week-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fd-fade-in 0.3s ease;
+    padding: 20px;
+}
+
+.fd-week-modal {
+    background: var(--bg-secondary, #1e293b);
+    border: 1px solid var(--fd-glass-border);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.fd-week-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.fd-week-header h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.fd-week-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px 8px;
+}
+
+.fd-week-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    padding: 3px;
+    width: fit-content;
+}
+
+.fd-week-toggle-btn {
+    padding: 6px 20px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted, #64748b);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.fd-week-toggle-btn--active {
+    background: rgba(99, 102, 241, 0.2);
+    color: var(--accent-secondary, #818cf8);
+}
+
+.fd-week-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fd-week-day {
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 12px;
+}
+
+.fd-week-day--today {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.fd-week-day-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.fd-week-day--today .fd-week-day-name {
+    color: var(--accent-secondary, #818cf8);
+}
+
+.fd-week-class {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 10px;
+    border-left: 3px solid #6366f1;
+    margin-bottom: 4px;
+    border-radius: 0 6px 6px 0;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.fd-week-class-time {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    min-width: 60px;
+    font-variant-numeric: tabular-nums;
+}
+
+.fd-week-class-name {
+    flex: 1;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.fd-week-class-room {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    min-width: 50px;
+    text-align: right;
+}
+
+/* Mobile week view */
+@media (max-width: 767px) {
+    .fd-week-modal { padding: 16px; }
+    .fd-week-header h2 { font-size: 1rem; }
 }
 
 /* ---- Grocery Widget ---- */
