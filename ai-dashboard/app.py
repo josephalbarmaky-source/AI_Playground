@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from datetime import datetime
 import os
 import requests as http_requests
-from models import db, Agent, Project, Task, ActivityLog, ScheduleEvent, GroceryItem, HouseInfo, FamilyActivity
+from models import db, Agent, Project, Task, ActivityLog, ScheduleEvent, CalendarEvent, GroceryItem, HouseInfo, FamilyActivity
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -41,6 +41,11 @@ def init_db():
         if ScheduleEvent.query.count() == 0:
             from seed_timetable import seed
             seed()
+
+        # Seed tutoring sessions if no calendar events exist
+        if CalendarEvent.query.count() == 0:
+            from seed_tutoring import seed_tutoring
+            seed_tutoring()
 
 
 # ==================== ROUTES ====================
@@ -344,6 +349,50 @@ def delete_schedule_event(event_id):
     return jsonify({'message': 'Event deleted'})
 
 
+# --- Family Calendar (one-off events) API ---
+
+@app.route('/api/family/calendar', methods=['GET'])
+def get_calendar_events():
+    events = CalendarEvent.query.order_by(CalendarEvent.date, CalendarEvent.start_time).all()
+    return jsonify([e.to_dict() for e in events])
+
+
+@app.route('/api/family/calendar', methods=['POST'])
+def create_calendar_event():
+    data = request.json
+    event = CalendarEvent(
+        title=data['title'],
+        date=data['date'],
+        start_time=data['start_time'],
+        end_time=data.get('end_time'),
+        location=data.get('location'),
+        color=data.get('color', '#f59e0b'),
+        event_type=data.get('event_type', 'tutor')
+    )
+    db.session.add(event)
+    db.session.commit()
+    return jsonify(event.to_dict()), 201
+
+
+@app.route('/api/family/calendar/<int:event_id>', methods=['PUT'])
+def update_calendar_event(event_id):
+    event = CalendarEvent.query.get_or_404(event_id)
+    data = request.json
+    for field in ['title', 'date', 'start_time', 'end_time', 'location', 'color', 'event_type']:
+        if field in data:
+            setattr(event, field, data[field])
+    db.session.commit()
+    return jsonify(event.to_dict())
+
+
+@app.route('/api/family/calendar/<int:event_id>', methods=['DELETE'])
+def delete_calendar_event(event_id):
+    event = CalendarEvent.query.get_or_404(event_id)
+    db.session.delete(event)
+    db.session.commit()
+    return jsonify({'message': 'Calendar event deleted'})
+
+
 # --- Family Grocery API ---
 
 @app.route('/api/family/grocery', methods=['GET'])
@@ -472,11 +521,13 @@ def delete_family_activity(activity_id):
 @app.route('/api/family/dashboard-data', methods=['GET'])
 def get_family_dashboard_data():
     schedule = ScheduleEvent.query.order_by(ScheduleEvent.day_of_week, ScheduleEvent.start_time).all()
+    calendar = CalendarEvent.query.order_by(CalendarEvent.date, CalendarEvent.start_time).all()
     grocery = GroceryItem.query.order_by(GroceryItem.is_checked, GroceryItem.category, GroceryItem.created_at.desc()).all()
     house_info = HouseInfo.query.order_by(HouseInfo.category, HouseInfo.sort_order).all()
     activities = FamilyActivity.query.order_by(FamilyActivity.timestamp.desc()).limit(50).all()
     return jsonify({
         'schedule': [e.to_dict() for e in schedule],
+        'calendar_events': [e.to_dict() for e in calendar],
         'grocery': [i.to_dict() for i in grocery],
         'house_info': [e.to_dict() for e in house_info],
         'activities': [a.to_dict() for a in activities],

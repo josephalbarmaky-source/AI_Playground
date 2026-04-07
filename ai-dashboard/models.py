@@ -129,6 +129,32 @@ class ScheduleEvent(db.Model):
         }
 
 
+class CalendarEvent(db.Model):
+    """One-off calendar events (tutoring, appointments, etc.)."""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    date = db.Column(db.String(10), nullable=False)  # "2026-04-07" YYYY-MM-DD
+    start_time = db.Column(db.String(5), nullable=False)  # "16:00"
+    end_time = db.Column(db.String(5))  # optional
+    location = db.Column(db.String(200))
+    color = db.Column(db.String(20), default='#f59e0b')
+    event_type = db.Column(db.String(50), default='tutor')  # tutor, appointment, other
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'date': self.date,
+            'start_time': self.start_time,
+            'end_time': self.end_time,
+            'location': self.location,
+            'color': self.color,
+            'event_type': self.event_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+
 class GroceryItem(db.Model):
     """Grocery list items."""
     id = db.Column(db.Integer, primary_key=True)

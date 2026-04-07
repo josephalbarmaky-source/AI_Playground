@@ -336,6 +336,21 @@
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
 }
 
+.fd-schedule-item--tutor {
+    border-style: dashed;
+}
+
+.fd-schedule-divider {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #f59e0b;
+    padding: 8px 0 4px;
+    border-top: 1px solid rgba(245, 158, 11, 0.2);
+    margin-top: 4px;
+}
+
 .fd-schedule-time {
     font-size: 0.75rem;
     font-weight: 600;

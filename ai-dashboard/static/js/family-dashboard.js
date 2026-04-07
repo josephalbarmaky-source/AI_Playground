@@ -34,7 +34,7 @@ const FamilyDashboard = {
     },
 
     renderAll(data) {
-        this.Schedule.render(data.schedule);
+        this.Schedule.render(data.schedule, data.calendar_events);
         this.Grocery.render(data.grocery);
         this.HouseInfo.render(data.house_info);
         this.Activity.render(data.activities);
@@ -59,9 +59,10 @@ const FamilyDashboard = {
             if (newData !== this.lastData) {
                 // Determine which widgets changed
                 const old = this.lastData ? JSON.parse(this.lastData) : {};
-                if (JSON.stringify(data.schedule) !== JSON.stringify(old.schedule)) {
+                if (JSON.stringify(data.schedule) !== JSON.stringify(old.schedule) ||
+                    JSON.stringify(data.calendar_events) !== JSON.stringify(old.calendar_events)) {
                     this.pulseCard('scheduleWidget');
-                    this.Schedule.render(data.schedule);
+                    this.Schedule.render(data.schedule, data.calendar_events);
                 }
                 if (JSON.stringify(data.grocery) !== JSON.stringify(old.grocery)) {
                     this.pulseCard('groceryWidget');
@@ -201,29 +202,30 @@ const FamilyDashboard = {
             return diffWeeks % 2 === 0 ? 'A' : 'B';
         },
 
-        render(events) {
+        render(events, calendarEvents) {
             this.data = events || [];
+            this.calendarData = calendarEvents || [];
             const body = document.getElementById('scheduleBody');
             const now = new Date();
             // JS getDay: 0=Sun, we need 0=Mon
             const today = (now.getDay() + 6) % 7;
             const currentTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
             const currentWeek = this.getCurrentWeek();
+            const todayStr = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0');
 
             // Update header to show day name and week
             const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
             const title = document.querySelector('.fd-card--schedule .fd-card__title');
             if (title) title.textContent = `📅 ${dayNames[today]} — Week ${currentWeek}`;
 
-            const todayEvents = this.data.filter(e => e.day_of_week === today && (e.week_type || 'A') === currentWeek);
+            const todayClasses = this.data.filter(e => e.day_of_week === today && (e.week_type || 'A') === currentWeek);
+            const todayTutoring = this.calendarData.filter(e => e.date === todayStr);
 
-            if (todayEvents.length === 0) {
+            if (todayClasses.length === 0 && todayTutoring.length === 0) {
                 // Check next day with classes
-                const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
                 let nextDay = -1;
                 for (let i = 1; i <= 7; i++) {
                     const d = (today + i) % 7;
-                    // After Friday (4), next week flips A↔B
                     const lookWeek = (i > (4 - today + 7) % 7 && today <= 4) ? (currentWeek === 'A' ? 'B' : 'A') : currentWeek;
                     if (this.data.some(e => e.day_of_week === d && (e.week_type || 'A') === lookWeek)) { nextDay = d; break; }
                 }
@@ -242,7 +244,10 @@ const FamilyDashboard = {
                 return;
             }
 
-            body.innerHTML = '<div class="fd-schedule-timeline">' + todayEvents.map(e => {
+            let html = '<div class="fd-schedule-timeline">';
+
+            // School classes
+            html += todayClasses.map(e => {
                 const isCurrent = currentTime >= e.start_time && currentTime <= e.end_time;
                 return `
                     <div class="fd-schedule-item ${isCurrent ? 'fd-schedule-item--current' : ''}"
@@ -256,8 +261,30 @@ const FamilyDashboard = {
                         <span class="fd-schedule-time fd-schedule-time--end">${this.formatTime(e.end_time)}</span>
                         <button class="fd-schedule-delete" onclick="event.stopPropagation();FamilyDashboard.Schedule.delete(${e.id})">&times;</button>
                     </div>`;
-            }).join('') + '</div>' +
-            '<button class="fd-week-view-btn" onclick="FamilyDashboard.Schedule.showWeekView()">View full week</button>';
+            }).join('');
+
+            // Tutoring sessions for today
+            if (todayTutoring.length > 0) {
+                html += '<div class="fd-schedule-divider">Tutoring</div>';
+                html += todayTutoring.map(e => {
+                    const isCurrent = currentTime >= e.start_time && (e.end_time ? currentTime <= e.end_time : false);
+                    return `
+                        <div class="fd-schedule-item fd-schedule-item--tutor ${isCurrent ? 'fd-schedule-item--current' : ''}"
+                             style="--item-color: ${e.color || '#f59e0b'}">
+                            <span class="fd-schedule-time">${this.formatTime(e.start_time)}</span>
+                            <div class="fd-schedule-info">
+                                <div class="fd-schedule-name">${this.escHtml(e.title)}</div>
+                                ${e.location ? `<div class="fd-schedule-loc">${this.escHtml(e.location)}</div>` : ''}
+                            </div>
+                            ${e.end_time ? `<span class="fd-schedule-time fd-schedule-time--end">${this.formatTime(e.end_time)}</span>` : ''}
+                            <button class="fd-schedule-delete" onclick="event.stopPropagation();FamilyDashboard.Schedule.deleteCalendarEvent(${e.id})">&times;</button>
+                        </div>`;
+                }).join('');
+            }
+
+            html += '</div>';
+            html += '<button class="fd-week-view-btn" onclick="FamilyDashboard.Schedule.showWeekView()">View full week</button>';
+            body.innerHTML = html;
         },
 
         formatTime(t) {
@@ -322,6 +349,12 @@ const FamilyDashboard = {
         async delete(id) {
             if (!confirm('Delete this class?')) return;
             await apiRequest(`/api/family/schedule/${id}`, { method: 'DELETE' });
+            FamilyDashboard.loadAll();
+        },
+
+        async deleteCalendarEvent(id) {
+            if (!confirm('Delete this tutoring session?')) return;
+            await apiRequest(`/api/family/calendar/${id}`, { method: 'DELETE' });
             FamilyDashboard.loadAll();
         },
 
