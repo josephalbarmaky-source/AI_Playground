@@ -37,6 +37,11 @@ def init_db():
             db.session.commit()
             print("Default agents created!")
 
+        # Seed Ayan's timetable if no schedule events exist
+        if ScheduleEvent.query.count() == 0:
+            from seed_timetable import seed
+            seed()
+
 
 # ==================== ROUTES ====================
 
@@ -312,7 +317,8 @@ def create_schedule_event():
         start_time=data['start_time'],
         end_time=data['end_time'],
         location=data.get('location'),
-        color=data.get('color', '#6366f1')
+        color=data.get('color', '#6366f1'),
+        week_type=data.get('week_type', 'A')
     )
     db.session.add(event)
     db.session.commit()
@@ -323,7 +329,7 @@ def create_schedule_event():
 def update_schedule_event(event_id):
     event = ScheduleEvent.query.get_or_404(event_id)
     data = request.json
-    for field in ['title', 'day_of_week', 'start_time', 'end_time', 'location', 'color']:
+    for field in ['title', 'day_of_week', 'start_time', 'end_time', 'location', 'color', 'week_type']:
         if field in data:
             setattr(event, field, data[field])
     db.session.commit()

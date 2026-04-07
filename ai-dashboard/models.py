@@ -112,6 +112,7 @@ class ScheduleEvent(db.Model):
     end_time = db.Column(db.String(5), nullable=False)    # "09:15"
     location = db.Column(db.String(200))
     color = db.Column(db.String(20), default='#6366f1')
+    week_type = db.Column(db.String(1), default='A')  # 'A' or 'B' for rotating timetable
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
@@ -123,6 +124,7 @@ class ScheduleEvent(db.Model):
             'end_time': self.end_time,
             'location': self.location,
             'color': self.color,
+            'week_type': self.week_type,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 

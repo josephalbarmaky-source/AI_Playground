@@ -190,6 +190,16 @@ const FamilyDashboard = {
     Schedule: {
         data: [],
 
+        // Week A reference date: Mon 6 Apr 2026
+        WEEK_A_REF: new Date(2026, 3, 6),
+
+        getCurrentWeek() {
+            const now = new Date();
+            const diffMs = now - this.WEEK_A_REF;
+            const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
+            return diffWeeks % 2 === 0 ? 'A' : 'B';
+        },
+
         render(events) {
             this.data = events || [];
             const body = document.getElementById('scheduleBody');
@@ -197,8 +207,13 @@ const FamilyDashboard = {
             // JS getDay: 0=Sun, we need 0=Mon
             const today = (now.getDay() + 6) % 7;
             const currentTime = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            const currentWeek = this.getCurrentWeek();
 
-            const todayEvents = this.data.filter(e => e.day_of_week === today);
+            // Update header to show current week
+            const title = document.querySelector('.fd-card--schedule .fd-card__title');
+            if (title) title.textContent = `📅 Ayan's Schedule (Week ${currentWeek})`;
+
+            const todayEvents = this.data.filter(e => e.day_of_week === today && (e.week_type || 'A') === currentWeek);
 
             if (todayEvents.length === 0) {
                 // Check next day with classes
@@ -206,7 +221,9 @@ const FamilyDashboard = {
                 let nextDay = -1;
                 for (let i = 1; i <= 7; i++) {
                     const d = (today + i) % 7;
-                    if (this.data.some(e => e.day_of_week === d)) { nextDay = d; break; }
+                    // After Friday (4), next week flips A↔B
+                    const lookWeek = (i > (4 - today + 7) % 7 && today <= 4) ? (currentWeek === 'A' ? 'B' : 'A') : currentWeek;
+                    if (this.data.some(e => e.day_of_week === d && (e.week_type || 'A') === lookWeek)) { nextDay = d; break; }
                 }
                 if (nextDay >= 0) {
                     const nextEvents = this.data.filter(e => e.day_of_week === nextDay);
@@ -265,6 +282,7 @@ const FamilyDashboard = {
                     document.getElementById('scheduleEnd').value = e.end_time;
                     document.getElementById('scheduleLocation').value = e.location || '';
                     document.getElementById('scheduleColor').value = e.color || '#6366f1';
+                    document.getElementById('scheduleWeek').value = e.week_type || 'A';
                 }
             } else {
                 document.getElementById('scheduleForm').reset();
@@ -285,7 +303,8 @@ const FamilyDashboard = {
                 start_time: document.getElementById('scheduleStart').value,
                 end_time: document.getElementById('scheduleEnd').value,
                 location: document.getElementById('scheduleLocation').value,
-                color: document.getElementById('scheduleColor').value
+                color: document.getElementById('scheduleColor').value,
+                week_type: document.getElementById('scheduleWeek').value
             };
 
             if (id) {
