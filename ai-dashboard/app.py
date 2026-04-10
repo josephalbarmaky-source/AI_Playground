@@ -299,6 +299,12 @@ def get_stats():
 
 # ==================== FAMILY DASHBOARD ====================
 
+@app.route('/spinner')
+def spinner_game():
+    """Spinner game - Joseph, Marwan, and Ayan."""
+    return render_template('spinner.html')
+
+
 @app.route('/family')
 def family_dashboard():
     """Family home dashboard - standalone full-screen view."""
