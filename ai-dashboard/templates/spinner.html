@@ -398,6 +398,85 @@
             background: rgba(239, 68, 68, 0.25) !important;
         }
 
+        /* Player management */
+        .player-mgmt-panel { margin-top: 16px; }
+        .player-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .player-item:last-child { border-bottom: none; }
+        .player-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .player-item-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            flex: 1;
+        }
+        .player-item-range {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .remove-player-btn {
+            width: 24px; height: 24px;
+            border-radius: 6px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+            color: #f87171;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+        .remove-player-btn:hover { background: rgba(239, 68, 68, 0.25); }
+        .remove-player-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+        .add-player-form {
+            display: flex;
+            gap: 6px;
+            padding: 10px 14px;
+            border-top: 1px solid var(--border-color);
+            align-items: center;
+        }
+        .add-player-form input {
+            padding: 7px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.8rem;
+            outline: none;
+        }
+        .add-player-form input:focus {
+            border-color: #6366f1;
+        }
+        .add-player-form input[type="text"] { flex: 2; min-width: 0; }
+        .add-player-form input[type="number"] { flex: 1; min-width: 0; width: 50px; }
+        .add-player-btn {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        .add-player-btn:hover { transform: scale(1.1); }
+
         /* Confetti canvas */
         #confettiCanvas {
             position: fixed;
@@ -521,16 +600,41 @@
                     <div class="log-entry" style="opacity:0.5; justify-content:center;">Spin the wheel to start!</div>
                 </div>
             </div>
+
+            <!-- Player Management -->
+            <div class="panel player-mgmt-panel">
+                <div class="panel-header">Players</div>
+                <div id="playerList"></div>
+                <div class="add-player-form">
+                    <input type="text" id="newPlayerName" placeholder="Name" maxlength="12">
+                    <input type="number" id="newPlayerMin" placeholder="Min" min="1" max="10">
+                    <input type="number" id="newPlayerMax" placeholder="Max" min="1" max="10">
+                    <button class="add-player-btn" onclick="addPlayer()" title="Add player">+</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
 <script>
 // ===================== GAME STATE =====================
-const players = [
-    { name: 'Joseph', min: 2, max: 6, color: '#f59e0b', dark: '#d97706', initial: 'J', score: 0 },
-    { name: 'Marwan', min: 1, max: 4, color: '#3b82f6', dark: '#2563eb', initial: 'M', score: 0 },
-    { name: 'Ayan',   min: 1, max: 3, color: '#10b981', dark: '#059669', initial: 'A', score: 0 },
+const COLOR_PALETTE = [
+    { color: '#f59e0b', dark: '#d97706' },
+    { color: '#3b82f6', dark: '#2563eb' },
+    { color: '#10b981', dark: '#059669' },
+    { color: '#f43f5e', dark: '#e11d48' },
+    { color: '#a855f7', dark: '#9333ea' },
+    { color: '#06b6d4', dark: '#0891b2' },
+    { color: '#f97316', dark: '#ea580c' },
+    { color: '#ec4899', dark: '#db2777' },
+    { color: '#14b8a6', dark: '#0d9488' },
+    { color: '#8b5cf6', dark: '#7c3aed' },
+];
+
+let players = [
+    { name: 'Joseph', min: 2, max: 6, color: '#f59e0b', dark: '#d97706', initial: 'J', score: 0, weight: 1.0 },
+    { name: 'Marwan', min: 1, max: 4, color: '#3b82f6', dark: '#2563eb', initial: 'M', score: 0, weight: 1.0 },
+    { name: 'Ayan',   min: 1, max: 3, color: '#10b981', dark: '#059669', initial: 'A', score: 0, weight: 1.0 },
 ];
 
 let targetScore = 25;
@@ -574,7 +678,28 @@ function buildSegments() {
 }
 
 let segments = buildSegments();
-const segAngle = (Math.PI * 2) / segments.length;
+let segmentAngles = [];
+
+function computeSegmentAngles() {
+    const totalWeight = segments.reduce((sum, seg) => sum + seg.player.weight, 0);
+    segmentAngles = [];
+    let cumulative = 0;
+    segments.forEach(seg => {
+        const size = (seg.player.weight / totalWeight) * Math.PI * 2;
+        segmentAngles.push({ start: cumulative, size: size, end: cumulative + size });
+        cumulative += size;
+    });
+}
+
+function getSegmentAtAngle(pointerAngle) {
+    const normalized = ((pointerAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+    for (let i = 0; i < segmentAngles.length; i++) {
+        if (normalized >= segmentAngles[i].start && normalized < segmentAngles[i].end) return i;
+    }
+    return 0;
+}
+
+computeSegmentAngles();
 
 function drawWheel(angle) {
     ctx.clearRect(0, 0, W, H);
@@ -589,13 +714,11 @@ function drawWheel(angle) {
     ctx.restore();
 
     segments.forEach((seg, i) => {
-        const startA = angle + i * segAngle;
-        const endA = startA + segAngle;
+        const sa = segmentAngles[i];
+        const startA = angle + sa.start;
+        const endA = angle + sa.end;
+        const midA = startA + sa.size / 2;
 
-        // Gradient for each segment
-        const midA = startA + segAngle / 2;
-        const gx = cx + Math.cos(midA) * radius * 0.5;
-        const gy = cy + Math.sin(midA) * radius * 0.5;
         const grad = ctx.createRadialGradient(cx, cy, radius * 0.15, cx, cy, radius);
         grad.addColorStop(0, seg.player.color);
         grad.addColorStop(1, seg.player.dark);
@@ -607,26 +730,28 @@ function drawWheel(angle) {
         ctx.fillStyle = grad;
         ctx.fill();
 
-        // Segment border
         ctx.strokeStyle = 'rgba(15, 23, 42, 0.5)';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Text
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(midA);
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        // Number
-        ctx.font = 'bold 32px Inter, sans-serif';
-        ctx.fillStyle = '#fff';
-        ctx.fillText(seg.number, radius * 0.65, 0);
-        // Player initial
-        ctx.font = '600 16px Inter, sans-serif';
-        ctx.fillStyle = 'rgba(255,255,255,0.7)';
-        ctx.fillText(seg.player.initial, radius * 0.42, 0);
-        ctx.restore();
+        // Text - scale down for narrow segments
+        if (sa.size > 0.08) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(midA);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            const numSize = sa.size < 0.15 ? 18 : 32;
+            ctx.font = `bold ${numSize}px Inter, sans-serif`;
+            ctx.fillStyle = '#fff';
+            ctx.fillText(seg.number, radius * 0.65, 0);
+            if (sa.size >= 0.15) {
+                ctx.font = '600 16px Inter, sans-serif';
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.fillText(seg.player.initial, radius * 0.42, 0);
+            }
+            ctx.restore();
+        }
     });
 
     // Inner circle shadow
@@ -644,7 +769,7 @@ function drawWheel(angle) {
 
     // Tick marks
     segments.forEach((_, i) => {
-        const a = angle + i * segAngle;
+        const a = angle + segmentAngles[i].start;
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(a);
@@ -688,8 +813,7 @@ function spin() {
 
         // Pointer bounce on segment change
         const pointerAngle = (-currentAngle - Math.PI / 2) % (Math.PI * 2);
-        const normalizedPointer = ((pointerAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-        const segIndex = Math.floor(normalizedPointer / segAngle) % segments.length;
+        const segIndex = getSegmentAtAngle(pointerAngle);
         if (segIndex !== lastSegIndex && lastSegIndex !== -1) {
             const pointer = document.getElementById('pointer');
             pointer.classList.remove('bounce');
@@ -704,12 +828,17 @@ function spin() {
         } else {
             // Determine result
             const finalPointerAngle = (-currentAngle - Math.PI / 2) % (Math.PI * 2);
-            const normalizedFinal = ((finalPointerAngle % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
-            const winSegIndex = Math.floor(normalizedFinal / segAngle) % segments.length;
+            const winSegIndex = getSegmentAtAngle(finalPointerAngle);
             const winningSeg = segments[winSegIndex];
 
             round++;
             winningSeg.player.score += winningSeg.number;
+
+            // Dynamic odds: shrink landed-on player's share
+            winningSeg.player.weight *= 0.85;
+            if (winningSeg.player.weight < 0.1) winningSeg.player.weight = 0.1;
+            computeSegmentAngles();
+            drawWheel(currentAngle);
 
             // Update UI
             showResult(winningSeg);
@@ -781,18 +910,19 @@ function showResult(seg) {
 
 function renderScoreboard(highlightPlayer) {
     const sb = document.getElementById('scoreboard');
-    // Sort by score descending
+    const totalWeight = players.reduce((sum, p) => (p.max - p.min + 1) * p.weight + sum, 0);
     const sorted = [...players].sort((a, b) => b.score - a.score);
     sb.innerHTML = sorted.map(p => {
         const isHighlight = highlightPlayer && p.name === highlightPlayer.name;
         const isWinner = gameOver && p.score >= targetScore;
         const pct = targetScore > 0 ? Math.min(p.score / targetScore * 100, 100) : 0;
+        const odds = totalWeight > 0 ? ((p.max - p.min + 1) * p.weight / totalWeight * 100).toFixed(1) : 0;
         return `
         <div class="score-row ${isHighlight ? 'highlight' : ''} ${isWinner ? 'winner' : ''}">
             <div class="score-avatar" style="background:linear-gradient(135deg,${p.color},${p.dark})">${p.initial}</div>
             <div class="score-info">
                 <div class="score-name">${p.name}</div>
-                <div class="score-range">Range: ${p.min}&ndash;${p.max}</div>
+                <div class="score-range">Range: ${p.min}&ndash;${p.max} &middot; Odds: ${odds}%</div>
                 <div style="margin-top:6px;height:4px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;">
                     <div style="height:100%;width:${pct}%;background:${p.color};border-radius:4px;transition:width 0.5s ease;"></div>
                 </div>
@@ -880,11 +1010,13 @@ function updateTarget() {
 }
 
 function resetGame() {
-    players.forEach(p => p.score = 0);
+    players.forEach(p => { p.score = 0; p.weight = 1.0; });
     round = 0;
     gameOver = false;
     isSpinning = false;
     currentAngle = 0;
+    segments = buildSegments();
+    computeSegmentAngles();
     document.getElementById('spinBtn').disabled = false;
     document.getElementById('winnerOverlay').classList.remove('show');
     document.getElementById('resultBanner').innerHTML = '';
@@ -892,12 +1024,65 @@ function resetGame() {
     const cc = document.getElementById('confettiCanvas');
     cc.getContext('2d').clearRect(0, 0, cc.width, cc.height);
     renderScoreboard();
+    renderPlayerList();
     drawWheel(currentAngle);
+}
+
+// ===================== PLAYER MANAGEMENT =====================
+function renderPlayerList() {
+    const list = document.getElementById('playerList');
+    list.innerHTML = players.map((p, i) => `
+        <div class="player-item">
+            <span class="player-dot" style="background:${p.color}"></span>
+            <span class="player-item-name">${p.name}</span>
+            <span class="player-item-range">${p.min}&ndash;${p.max}</span>
+            <button class="remove-player-btn" onclick="removePlayer(${i})" ${players.length <= 2 ? 'disabled' : ''} title="Remove">&times;</button>
+        </div>
+    `).join('');
+}
+
+function addPlayer() {
+    if (isSpinning) return;
+    const nameEl = document.getElementById('newPlayerName');
+    const minEl = document.getElementById('newPlayerMin');
+    const maxEl = document.getElementById('newPlayerMax');
+    const name = nameEl.value.trim();
+    const min = parseInt(minEl.value);
+    const max = parseInt(maxEl.value);
+    if (!name) return alert('Enter a player name.');
+    if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) return alert('Name already taken.');
+    if (isNaN(min) || isNaN(max) || min < 1 || max < 1 || min > 10 || max > 10) return alert('Min/Max must be 1-10.');
+    if (min > max) return alert('Min cannot be greater than Max.');
+    if (players.length >= 8) return alert('Maximum 8 players.');
+    const usedColors = new Set(players.map(p => p.color));
+    const palette = COLOR_PALETTE.find(c => !usedColors.has(c.color)) || COLOR_PALETTE[players.length % COLOR_PALETTE.length];
+    players.push({
+        name, min, max,
+        color: palette.color, dark: palette.dark,
+        initial: name.charAt(0).toUpperCase(),
+        score: 0, weight: 1.0
+    });
+    nameEl.value = ''; minEl.value = ''; maxEl.value = '';
+    rebuildAndReset();
+}
+
+function removePlayer(index) {
+    if (isSpinning || players.length <= 2) return;
+    players.splice(index, 1);
+    rebuildAndReset();
+}
+
+function rebuildAndReset() {
+    segments = buildSegments();
+    computeSegmentAngles();
+    resetGame();
+    renderPlayerList();
 }
 
 // ===================== INIT =====================
 drawWheel(currentAngle);
 renderScoreboard();
+renderPlayerList();
 
 // Resume audio context on first interaction
 document.addEventListener('click', () => {

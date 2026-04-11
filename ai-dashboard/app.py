@@ -305,6 +305,12 @@ def spinner_game():
     return render_template('spinner.html')
 
 
+@app.route('/tools')
+def tools_page():
+    """AI tools overview page."""
+    return render_template('tools.html')
+
+
 @app.route('/family')
 def family_dashboard():
     """Family home dashboard - standalone full-screen view."""

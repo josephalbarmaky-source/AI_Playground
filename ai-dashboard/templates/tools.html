@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}AI Tools{% endblock %}
+{% block page_title %}AI Tools{% endblock %}
+
+{% block content %}
+<style>
+    .tools-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 20px;
+        padding: 4px;
+    }
+    .tool-card {
+        background: var(--card-bg, #1e293b);
+        border: 1px solid #334155;
+        border-radius: 14px;
+        padding: 22px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .tool-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .tool-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .tool-icon {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+    }
+    .tool-card h3 {
+        font-size: 1.05rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .tool-card .tool-author {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-top: 2px;
+    }
+    .tool-card p {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        line-height: 1.5;
+        margin-bottom: 14px;
+    }
+    .tool-status {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .tool-status.ready { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .tool-status.config { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+    .tool-status.gpu { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .tool-path {
+        font-family: monospace;
+        font-size: 0.72rem;
+        color: #64748b;
+        margin-top: 10px;
+    }
+</style>
+
+<div class="tools-grid">
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(245,158,11,0.15);">🧪</div>
+            <div>
+                <h3>Auto-Research</h3>
+                <div class="tool-author">Andrej Karpathy</div>
+            </div>
+        </div>
+        <p>Autonomous ML research agent. Modifies training code, trains for 5 min, evaluates, and repeats overnight.</p>
+        <span class="tool-status gpu">Needs GPU</span>
+        <div class="tool-path">~/tools/auto-research</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(99,102,241,0.15);">🧬</div>
+            <div>
+                <h3>OpenSpace</h3>
+                <div class="tool-author">HKUDS</div>
+            </div>
+        </div>
+        <p>Self-evolving skill engine. AUTO-FIX, AUTO-IMPROVE, AUTO-LEARN. 46% fewer tokens through shared agent experiences.</p>
+        <span class="tool-status config">Needs API Key</span>
+        <div class="tool-path">~/tools/openspace</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(236,72,153,0.15);">🔌</div>
+            <div>
+                <h3>CLI-Anything</h3>
+                <div class="tool-author">HKUDS</div>
+            </div>
+        </div>
+        <p>Make any software agent-native. 50+ CLI wrappers for Blender, GIMP, OBS, LibreOffice, games, and more.</p>
+        <span class="tool-status ready">Ready</span>
+        <div class="tool-path">~/tools/cli-anything</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(59,130,246,0.15);">💬</div>
+            <div>
+                <h3>Claude Peers</h3>
+                <div class="tool-author">louislva</div>
+            </div>
+        </div>
+        <p>Let Claude Code instances discover each other and message in real-time. MCP server with broker daemon.</p>
+        <span class="tool-status ready">Ready</span>
+        <div class="tool-path">~/tools/claude-peers</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(16,185,129,0.15);">📧</div>
+            <div>
+                <h3>GWS</h3>
+                <div class="tool-author">Google Workspace</div>
+            </div>
+        </div>
+        <p>One CLI for all of Google Workspace &mdash; Drive, Gmail, Calendar, Sheets, Docs, Chat. Built from Discovery Service.</p>
+        <span class="tool-status config">Needs OAuth</span>
+        <div class="tool-path">~/tools/gws</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(168,85,247,0.15);">🎨</div>
+            <div>
+                <h3>Impeccable</h3>
+                <div class="tool-author">pbakaus</div>
+            </div>
+        </div>
+        <p>18 design commands for perfect frontend UI. Audit, polish, animate, typeset, colorize, and more.</p>
+        <span class="tool-status ready">Ready</span>
+        <div class="tool-path">~/tools/impeccable</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(20,184,166,0.15);">📐</div>
+            <div>
+                <h3>Awesome Design.md</h3>
+                <div class="tool-author">VoltAgent</div>
+            </div>
+        </div>
+        <p>66 DESIGN.md files from popular websites. Drop one in your project for pixel-perfect AI-generated UI.</p>
+        <span class="tool-status ready">Ready</span>
+        <div class="tool-path">~/tools/awesome-design</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(6,182,212,0.15);">🎭</div>
+            <div>
+                <h3>Playwright Skill</h3>
+                <div class="tool-author">lackeyjb</div>
+            </div>
+        </div>
+        <p>Browser automation as a Claude Skill. Claude writes and runs custom Playwright code for any testing task.</p>
+        <span class="tool-status config">Run setup</span>
+        <div class="tool-path">~/tools/playwright-cli</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-card-header">
+            <div class="tool-icon" style="background:rgba(249,115,22,0.15);">🎬</div>
+            <div>
+                <h3>Remotion Kickstart</h3>
+                <div class="tool-author">jhartquist</div>
+            </div>
+        </div>
+        <p>Programmatic video creation with Claude Code. Pre-built components, AI integrations, Tailwind styling.</p>
+        <span class="tool-status config">Optional API Keys</span>
+        <div class="tool-path">~/tools/remotion</div>
+    </div>
+</div>
+{% endblock %}
