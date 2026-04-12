@@ -1,265 +1,612 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr" data-lang="en">
+<html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="description" content="Dabbar — your personal AI assistant on Telegram. AED 500/month instead of AED 5,000. Built for the UAE.">
-    <meta name="theme-color" content="#0a0a0f">
-    <meta property="og:title" content="Dabbar — Your AI Personal Assistant">
-    <meta property="og:description" content="AED 500/month instead of AED 5,000. Your personal AI assistant on Telegram. Built for the UAE.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://dabbar.ai">
-    <title>Dabbar — Your AI Personal Assistant</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dabbar | دبّر — Your AI Personal Assistant</title>
+<meta name="description" content="دبّر — مساعدك الشخصي بالذكاء الاصطناعي. يدفع فواتيرك، يحجز مطاعمك، ويتابع مخالفاتك. AED 500/month.">
+<meta name="theme-color" content="#0a0a0a">
+<meta property="og:title" content="Dabbar — دبّر">
+<meta property="og:description" content="Your AI personal assistant. Pays your bills, books restaurants, tracks fines — while you relax.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a;
+    --white: #f5f2eb;
+    --cream: #ede8dd;
+    --gold: #c8a84e;
+    --gold-dim: #9a7d38;
+    --green-telegram: #2AABEE;
+    --text-muted: #8a8578;
+    --card-bg: #141413;
+    --card-border: #2a2a27;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'IBM Plex Sans Arabic', sans-serif;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: 'Space Mono', monospace; }
+
+  /* ---- Grain overlay ---- */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ---- Nav ---- */
+  .top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 2rem;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+    background: rgba(10, 10, 10, 0.7);
+  }
+
+  .lang-toggle {
+    background: none;
+    border: 1px solid var(--card-border);
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    transition: all 0.3s;
+  }
+
+  .lang-toggle:hover {
+    border-color: var(--gold-dim);
+    color: var(--gold);
+  }
+
+  .top-logo {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- Hero ---- */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 2rem;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(200, 168, 78, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .brand-name {
+    font-size: clamp(3.5rem, 10vw, 7rem);
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+    line-height: 1;
+  }
+
+  .brand-sub {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 2.5rem;
+  }
+
+  .hero-tagline {
+    font-size: clamp(1.1rem, 2.5vw, 1.5rem);
+    font-weight: 300;
+    line-height: 1.8;
+    max-width: 600px;
+    color: var(--cream);
+    margin-bottom: 3rem;
+  }
+
+  .cta-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--gold);
+    color: var(--black);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 0.9rem 2rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.02em;
+  }
+
+  .cta-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .cta-btn:hover {
+    background: var(--cream);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(200, 168, 78, 0.2);
+  }
+
+  .cta-note {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.15em;
+  }
+
+  /* ---- Sections ---- */
+  .section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-label {
+    font-size: 0.7rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-heading {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 600;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    color: var(--cream);
+  }
+
+  .section-body {
+    font-size: 1.05rem;
+    font-weight: 300;
+    line-height: 2;
+    color: var(--text-muted);
+    max-width: 600px;
+  }
+
+  .divider {
+    max-width: 800px;
+    margin: 0 auto;
+    border: none;
+    border-top: 1px solid var(--card-border);
+  }
+
+  /* ---- Feature cards ---- */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-top: 2.5rem;
+  }
+
+  .feature-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    padding: 1.75rem;
+    transition: all 0.3s;
+  }
+
+  .feature-card:hover {
+    border-color: var(--gold-dim);
+    transform: translateY(-3px);
+  }
+
+  .feature-icon {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .feature-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--cream);
+  }
+
+  .feature-desc {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* ---- How it works ---- */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    margin-top: 2.5rem;
+  }
+
+  .step {
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--gold);
+    line-height: 1;
+    min-width: 2.5rem;
+  }
+
+  .step-text h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cream);
+    margin-bottom: 0.4rem;
+  }
+
+  .step-text p {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+
+  /* ---- Comparison ---- */
+  .compare-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 0;
+    margin-top: 2.5rem;
+    border: 1px solid var(--card-border);
+  }
+
+  .compare-cell {
+    padding: 1rem 1.25rem;
+    font-size: 0.9rem;
+    border-bottom: 1px solid var(--card-border);
+    color: var(--text-muted);
+  }
+
+  .compare-cell:nth-child(3n+2) {
+    border-inline-start: 1px solid var(--card-border);
+  }
+
+  .compare-cell:nth-child(3n) {
+    border-inline-start: 1px solid var(--card-border);
+  }
+
+  .compare-cell.header {
+    font-weight: 600;
+    color: var(--cream);
+    background: var(--card-bg);
+    font-size: 0.95rem;
+  }
+
+  .compare-cell.highlight {
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  /* ---- Pricing ---- */
+  .price-card {
+    background: var(--card-bg);
+    border: 1px solid var(--gold-dim);
+    padding: 2.5rem;
+    text-align: center;
+    margin-top: 2rem;
+    position: relative;
+  }
+
+  .price-badge {
+    position: absolute;
+    top: -0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: var(--black);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 0.3rem 1rem;
+    font-weight: 700;
+  }
+
+  .price-amount {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--gold);
+    margin: 1rem 0 0.25rem;
+  }
+
+  .price-period {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .price-features {
+    list-style: none;
+    text-align: start;
+    margin-bottom: 2rem;
+  }
+
+  .price-features li {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--card-border);
+    font-size: 0.9rem;
+    color: var(--cream);
+  }
+
+  .price-features li::before {
+    content: '✓ ';
+    color: var(--gold);
+    font-weight: 700;
+  }
+
+  /* ---- Reveal animation ---- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ---- Footer ---- */
+  footer {
+    text-align: center;
+    padding: 3rem 2rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    border-top: 1px solid var(--card-border);
+  }
+
+  footer a {
+    color: var(--gold-dim);
+    text-decoration: none;
+  }
+
+  footer a:hover {
+    color: var(--gold);
+  }
+
+  /* ---- Responsive ---- */
+  @media (max-width: 600px) {
+    .compare-row { grid-template-columns: 1.2fr 1fr 1fr; }
+    .compare-cell { padding: 0.75rem 0.6rem; font-size: 0.8rem; }
+    .section { padding: 3.5rem 1.5rem; }
+    .features-grid { grid-template-columns: 1fr; }
+  }
+</style>
 </head>
 <body>
 
-<!-- Ambient background effects -->
-<div class="bg-grid"></div>
-<div class="bg-glow"></div>
+<!-- ==================== TOP BAR ==================== -->
+<div class="top-bar">
+  <span class="top-logo" data-ar="دبّر" data-en="dabbar">دبّر</span>
+  <button class="lang-toggle" onclick="toggleLang()">EN / عربي</button>
+</div>
 
-<!-- Header -->
-<header class="site-header">
-    <div class="container">
-        <a href="#" class="logo">
-            <span class="logo-mark">د</span>
-            <span class="logo-text">Dabbar</span>
-        </a>
-        <nav class="nav">
-            <a href="#features" data-i18n="nav.features">Features</a>
-            <a href="#pricing" data-i18n="nav.pricing">Pricing</a>
-            <a href="#how" data-i18n="nav.how">How it works</a>
-            <button class="lang-toggle" onclick="toggleLang()" aria-label="Toggle language">
-                <span id="lang-label">العربية</span>
-            </button>
-            <a href="#waitlist" class="btn btn-primary btn-sm" data-i18n="nav.cta">Get early access</a>
-        </nav>
-    </div>
-</header>
-
-<!-- Hero -->
+<!-- ==================== HERO ==================== -->
 <section class="hero">
-    <div class="container">
-        <div class="hero-badge">
-            <span class="hero-badge-dot"></span>
-            <span data-i18n="hero.badge">Private beta — UAE only</span>
-        </div>
-        <h1 class="hero-title">
-            <span data-i18n="hero.title1">Your personal AI assistant,</span><br>
-            <span class="hero-title-accent" data-i18n="hero.title2">on Telegram.</span>
-        </h1>
-        <p class="hero-sub" data-i18n="hero.sub">
-            Dabbar handles your calendar, email, reminders, and tasks — 24/7, in Arabic or English.
-            Built for the UAE. <strong>AED 500/month</strong> instead of AED 5,000 for a human VA.
-        </p>
-        <div class="hero-cta">
-            <a href="#waitlist" class="btn btn-primary btn-lg" data-i18n="hero.cta">Get early access</a>
-            <a href="#how" class="btn btn-ghost btn-lg" data-i18n="hero.cta2">See how it works →</a>
-        </div>
-        <div class="hero-meta">
-            <span data-i18n="hero.meta1">✦ No credit card</span>
-            <span data-i18n="hero.meta2">✦ Arabic & English</span>
-            <span data-i18n="hero.meta3">✦ Private — your data stays in the UAE</span>
-        </div>
-    </div>
+  <div class="brand-name" data-ar="دبّر" data-en="dabbar">دبّر</div>
+  <div class="brand-sub" data-ar="مساعدك الشخصي بالذكاء الاصطناعي" data-en="AI PERSONAL ASSISTANT">مساعدك الشخصي بالذكاء الاصطناعي</div>
+  <p class="hero-tagline" data-ar="يدفع فواتيرك، يحجز مطاعمك، ويتابع مخالفاتك — وأنت مرتاح." data-en="Your AI personal assistant. Pays your bills, books restaurants, tracks fines — while you relax.">يدفع فواتيرك، يحجز مطاعمك، ويتابع مخالفاتك — وأنت مرتاح.</p>
 
-    <!-- Fake chat preview -->
-    <div class="chat-preview">
-        <div class="chat-window">
-            <div class="chat-header">
-                <div class="chat-avatar">د</div>
-                <div>
-                    <div class="chat-name">Dabbar</div>
-                    <div class="chat-status">online</div>
-                </div>
-            </div>
-            <div class="chat-body">
-                <div class="bubble user">Remind me to pay rent tomorrow at 9am</div>
-                <div class="bubble bot">✅ Reminder set for Sat 12 Apr, 09:00</div>
-                <div class="bubble user" dir="rtl">وش عندي بالكالندر بكرة؟</div>
-                <div class="bubble bot" dir="rtl">📅 بكرة عندك:<br>• ١٠:٠٠ — اجتماع فريق<br>• ١٤:٣٠ — غداء مع أحمد</div>
-                <div class="bubble user">Draft an email declining the Monday meeting, politely</div>
-                <div class="bubble bot typing"><span></span><span></span><span></span></div>
-            </div>
-        </div>
-    </div>
+  <div class="cta-group">
+    <a href="https://t.me/dabbar_ai" class="cta-btn" data-ar="انضم لقائمة الانتظار" data-en="Join the Waitlist">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.53 8.15l-1.87 8.83c-.14.63-.51.79-1.03.49l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.92 5.27-4.76c.23-.2-.05-.32-.36-.12L8.69 13.3l-2.82-.88c-.61-.19-.63-.61.13-.91l11.03-4.25c.51-.19.96.12.5.89z"/></svg>
+      <span>انضم لقائمة الانتظار</span>
+    </a>
+    <span class="cta-note mono" data-ar="عبر تيليجرام · مجاناً للتسجيل" data-en="Via Telegram · Free to register">عبر تيليجرام · مجاناً للتسجيل</span>
+  </div>
 </section>
 
-<!-- Problem section -->
-<section class="section problem">
-    <div class="container">
-        <div class="pill" data-i18n="problem.pill">The problem</div>
-        <h2 class="section-title" data-i18n="problem.title">
-            Human VAs cost too much. ChatGPT doesn't know your life.
-        </h2>
-        <div class="compare-grid">
-            <div class="compare-card">
-                <div class="compare-label" data-i18n="problem.vaLabel">Human VA in UAE</div>
-                <div class="compare-price">AED 3,000–7,000<span>/month</span></div>
-                <ul>
-                    <li data-i18n="problem.va1">✖ 9–5 working hours only</li>
-                    <li data-i18n="problem.va2">✖ Visa, salary, holidays, sick days</li>
-                    <li data-i18n="problem.va3">✖ Takes weeks to hire</li>
-                </ul>
-            </div>
-            <div class="compare-card">
-                <div class="compare-label" data-i18n="problem.gptLabel">ChatGPT / generic bots</div>
-                <div class="compare-price">Free<span> — but…</span></div>
-                <ul>
-                    <li data-i18n="problem.gpt1">✖ Doesn't know your calendar</li>
-                    <li data-i18n="problem.gpt2">✖ Can't send real emails</li>
-                    <li data-i18n="problem.gpt3">✖ Banned from WhatsApp (Jan 2026)</li>
-                </ul>
-            </div>
-            <div class="compare-card highlight">
-                <div class="compare-label">Dabbar</div>
-                <div class="compare-price">AED 500<span>/month</span></div>
-                <ul>
-                    <li data-i18n="problem.da1">✓ 24/7 — never sleeps</li>
-                    <li data-i18n="problem.da2">✓ Calendar, email, tasks, web</li>
-                    <li data-i18n="problem.da3">✓ Arabic & English, Gulf dialect</li>
-                </ul>
-            </div>
-        </div>
+<hr class="divider">
+
+<!-- ==================== WHAT ==================== -->
+<section class="section reveal">
+  <div class="section-label mono" data-ar="ما هو دبّر؟" data-en="WHAT IS DABBAR?">ما هو دبّر؟</div>
+  <h2 class="section-heading" data-ar="مساعد شخصي ذكي، يشتغل على تيليجرام ٢٤/٧" data-en="A smart personal assistant that works on Telegram 24/7">مساعد شخصي ذكي، يشتغل على تيليجرام ٢٤/٧</h2>
+  <p class="section-body" data-ar="أرسل رسالة وخلّه يدبّر. فواتير ديوا، مخالفات المرور، حجوزات المطاعم، تذكيرات، وأكثر — كل شي مخصص لحياتك في الإمارات." data-en="Send a message and let it handle everything. DEWA bills, RTA fines, restaurant reservations, reminders, and more — fully customized for life in the UAE.">أرسل رسالة وخلّه يدبّر. فواتير ديوا، مخالفات المرور، حجوزات المطاعم، تذكيرات، وأكثر — كل شي مخصص لحياتك في الإمارات.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title" data-ar="فواتير ديوا" data-en="DEWA Bills">فواتير ديوا</div>
+      <div class="feature-desc" data-ar="يتابع فواتيرك ويذكّرك قبل موعد الدفع" data-en="Tracks your bills and reminds you before they're due">يتابع فواتيرك ويذكّرك قبل موعد الدفع</div>
     </div>
+    <div class="feature-card">
+      <div class="feature-icon">🚗</div>
+      <div class="feature-title" data-ar="مخالفات المرور" data-en="Traffic Fines">مخالفات المرور</div>
+      <div class="feature-desc" data-ar="يراقب مخالفاتك ويبلّغك فوراً" data-en="Monitors your fines and notifies you instantly">يراقب مخالفاتك ويبلّغك فوراً</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🍽️</div>
+      <div class="feature-title" data-ar="حجوزات المطاعم" data-en="Restaurant Bookings">حجوزات المطاعم</div>
+      <div class="feature-desc" data-ar="احجز طاولتك بمجرد رسالة" data-en="Book your table with a single message">احجز طاولتك بمجرد رسالة</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <div class="feature-title" data-ar="يعرفك شخصياً" data-en="Knows You Personally">يعرفك شخصياً</div>
+      <div class="feature-desc" data-ar="يتذكّر تفضيلاتك ويتعلم من عاداتك" data-en="Remembers your preferences and learns your habits">يتذكّر تفضيلاتك ويتعلم من عاداتك</div>
+    </div>
+  </div>
 </section>
 
-<!-- Features -->
-<section id="features" class="section">
-    <div class="container">
-        <div class="pill" data-i18n="features.pill">What Dabbar does</div>
-        <h2 class="section-title" data-i18n="features.title">A real assistant, not a chatbot.</h2>
-        <div class="feature-grid">
-            <div class="feature">
-                <div class="feature-icon">📅</div>
-                <h3 data-i18n="features.f1t">Calendar management</h3>
-                <p data-i18n="features.f1d">"What's on my calendar tomorrow?" "Move my 3pm to 4pm." It just works.</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">✉️</div>
-                <h3 data-i18n="features.f2t">Email drafting & triage</h3>
-                <p data-i18n="features.f2d">Summarise your inbox, draft replies, send — all from Telegram.</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">⏰</div>
-                <h3 data-i18n="features.f3t">Reminders & follow-ups</h3>
-                <p data-i18n="features.f3d">"Remind me to call Fatima in 2 hours." Dabbar never forgets.</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">📝</div>
-                <h3 data-i18n="features.f4t">Tasks & to-dos</h3>
-                <p data-i18n="features.f4d">Add, list, complete — in natural language. No apps to manage.</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🔎</div>
-                <h3 data-i18n="features.f5t">Web research</h3>
-                <p data-i18n="features.f5d">Real answers from real sources. No hallucinations, with citations.</p>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">💰</div>
-                <h3 data-i18n="features.f6t">Expense tracking</h3>
-                <p data-i18n="features.f6d">Send a receipt photo, Dabbar categorises and tracks your spend.</p>
-            </div>
-        </div>
+<hr class="divider">
+
+<!-- ==================== HOW ==================== -->
+<section class="section reveal">
+  <div class="section-label mono" data-ar="كيف يشتغل؟" data-en="HOW IT WORKS">كيف يشتغل؟</div>
+  <h2 class="section-heading" data-ar="ثلاث خطوات وتنطلق" data-en="Three steps and you're set">ثلاث خطوات وتنطلق</h2>
+
+  <div class="steps">
+    <div class="step">
+      <span class="step-num">1</span>
+      <div class="step-text">
+        <h3 data-ar="سجّل عبر تيليجرام" data-en="Sign up via Telegram">سجّل عبر تيليجرام</h3>
+        <p data-ar="اضغط على الرابط وابدأ محادثة مع دبّر" data-en="Click the link and start a conversation with Dabbar">اضغط على الرابط وابدأ محادثة مع دبّر</p>
+      </div>
     </div>
+    <div class="step">
+      <span class="step-num">2</span>
+      <div class="step-text">
+        <h3 data-ar="خبّره عن حياتك" data-en="Tell it about your life">خبّره عن حياتك</h3>
+        <p data-ar="دبّر يسألك أسئلة بسيطة عشان يفهم احتياجاتك" data-en="Dabbar asks simple questions to understand your needs">دبّر يسألك أسئلة بسيطة عشان يفهم احتياجاتك</p>
+      </div>
+    </div>
+    <div class="step">
+      <span class="step-num">3</span>
+      <div class="step-text">
+        <h3 data-ar="خلّه يدبّر" data-en="Let it handle things">خلّه يدبّر</h3>
+        <p data-ar="أرسل أي طلب وهو يتكفّل — ٢٤ ساعة، ٧ أيام" data-en="Send any request and it takes care of it — 24/7">أرسل أي طلب وهو يتكفّل — ٢٤ ساعة، ٧ أيام</p>
+      </div>
+    </div>
+  </div>
 </section>
 
-<!-- How it works -->
-<section id="how" class="section">
-    <div class="container">
-        <div class="pill" data-i18n="how.pill">Three steps</div>
-        <h2 class="section-title" data-i18n="how.title">From zero to assistant in 60 seconds.</h2>
-        <div class="steps">
-            <div class="step">
-                <div class="step-num">01</div>
-                <h3 data-i18n="how.s1t">Open Telegram</h3>
-                <p data-i18n="how.s1d">Search @DabbarBot or scan the QR on our site.</p>
-            </div>
-            <div class="step">
-                <div class="step-num">02</div>
-                <h3 data-i18n="how.s2t">Say hi</h3>
-                <p data-i18n="how.s2d">Tap Start. Dabbar greets you in your language automatically.</p>
-            </div>
-            <div class="step">
-                <div class="step-num">03</div>
-                <h3 data-i18n="how.s3t">Let it handle things</h3>
-                <p data-i18n="how.s3d">Reminders, calendar, email, tasks — just ask, like you would a real assistant.</p>
-            </div>
-        </div>
-    </div>
+<hr class="divider">
+
+<!-- ==================== PRICING ==================== -->
+<section class="section reveal">
+  <div class="section-label mono" data-ar="الأسعار" data-en="PRICING">الأسعار</div>
+  <h2 class="section-heading" data-ar="أقل من سكرتير بشري بـ٦ مرات" data-en="6x cheaper than a human PA">أقل من سكرتير بشري بـ٦ مرات</h2>
+
+  <div class="price-card">
+    <div class="price-badge" data-ar="سعر التأسيس" data-en="FOUNDING PRICE">سعر التأسيس</div>
+    <div class="price-amount" data-ar="٥٠٠ درهم" data-en="AED 500">٥٠٠ درهم</div>
+    <div class="price-period" data-ar="شهرياً" data-en="per month">شهرياً</div>
+    <ul class="price-features">
+      <li data-ar="رسائل غير محدودة ٢٤/٧" data-en="Unlimited messages 24/7">رسائل غير محدودة ٢٤/٧</li>
+      <li data-ar="يتعلم تفضيلاتك مع الوقت" data-en="Learns your preferences over time">يتعلم تفضيلاتك مع الوقت</li>
+      <li data-ar="خدمات مخصصة للإمارات" data-en="UAE-specific services">خدمات مخصصة للإمارات</li>
+      <li data-ar="بياناتك محفوظة محلياً" data-en="Your data stays local">بياناتك محفوظة محلياً</li>
+      <li data-ar="دعم عربي وإنجليزي" data-en="Arabic & English support">دعم عربي وإنجليزي</li>
+    </ul>
+    <a href="https://t.me/dabbar_ai" class="cta-btn" style="width:100%;justify-content:center;" data-ar="احجز مكانك الآن" data-en="Reserve Your Spot">
+      <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.53 8.15l-1.87 8.83c-.14.63-.51.79-1.03.49l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.92 5.27-4.76c.23-.2-.05-.32-.36-.12L8.69 13.3l-2.82-.88c-.61-.19-.63-.61.13-.91l11.03-4.25c.51-.19.96.12.5.89z"/></svg>
+      <span>احجز مكانك الآن</span>
+    </a>
+  </div>
 </section>
 
-<!-- Pricing -->
-<section id="pricing" class="section">
-    <div class="container">
-        <div class="pill" data-i18n="pricing.pill">Simple pricing</div>
-        <h2 class="section-title" data-i18n="pricing.title">One plan. Cancel anytime.</h2>
-        <div class="pricing-card">
-            <div class="pricing-badge" data-i18n="pricing.badge">Launch price — first 100 users</div>
-            <div class="pricing-name">Dabbar</div>
-            <div class="pricing-price">
-                <span class="price-currency">AED</span>
-                <span class="price-amount">500</span>
-                <span class="price-period" data-i18n="pricing.period">/month</span>
-            </div>
-            <div class="pricing-was" data-i18n="pricing.was">Normally AED 750/month</div>
-            <ul class="pricing-features">
-                <li data-i18n="pricing.feat1">✓ Unlimited conversations</li>
-                <li data-i18n="pricing.feat2">✓ Calendar + Gmail integration</li>
-                <li data-i18n="pricing.feat3">✓ Unlimited reminders & tasks</li>
-                <li data-i18n="pricing.feat4">✓ Web search with citations</li>
-                <li data-i18n="pricing.feat5">✓ Arabic & English (Gulf dialect)</li>
-                <li data-i18n="pricing.feat6">✓ Private — your data stays in the UAE</li>
-                <li data-i18n="pricing.feat7">✓ 7-day free trial, no card needed</li>
-            </ul>
-            <a href="#waitlist" class="btn btn-primary btn-lg btn-full" data-i18n="pricing.cta">Join the waitlist</a>
-        </div>
-    </div>
+<hr class="divider">
+
+<!-- ==================== COMPARISON ==================== -->
+<section class="section reveal">
+  <div class="section-label mono" data-ar="المقارنة" data-en="COMPARISON">المقارنة</div>
+  <h2 class="section-heading" data-ar="دبّر مقابل سكرتير بشري" data-en="Dabbar vs Human PA">دبّر مقابل سكرتير بشري</h2>
+
+  <div class="compare-row">
+    <div class="compare-cell header"></div>
+    <div class="compare-cell header" data-ar="دبّر" data-en="Dabbar">دبّر</div>
+    <div class="compare-cell header" data-ar="سكرتير بشري" data-en="Human PA">سكرتير بشري</div>
+
+    <div class="compare-cell" data-ar="السعر الشهري" data-en="Monthly cost">السعر الشهري</div>
+    <div class="compare-cell highlight" data-ar="٥٠٠ درهم" data-en="AED 500">٥٠٠ درهم</div>
+    <div class="compare-cell" data-ar="+٣٬٠٠٠ درهم" data-en="AED 3,000+">+٣٬٠٠٠ درهم</div>
+
+    <div class="compare-cell" data-ar="متاح ٢٤/٧" data-en="Available 24/7">متاح ٢٤/٧</div>
+    <div class="compare-cell highlight">✓</div>
+    <div class="compare-cell">✗</div>
+
+    <div class="compare-cell" data-ar="وقت الاستجابة" data-en="Response time">وقت الاستجابة</div>
+    <div class="compare-cell highlight" data-ar="ثواني" data-en="Seconds">ثواني</div>
+    <div class="compare-cell" data-ar="ساعات" data-en="Hours">ساعات</div>
+
+    <div class="compare-cell" data-ar="ما ينسى أبداً" data-en="Never forgets">ما ينسى أبداً</div>
+    <div class="compare-cell highlight">✓</div>
+    <div class="compare-cell">✗</div>
+  </div>
 </section>
 
-<!-- Waitlist -->
-<section id="waitlist" class="section waitlist-section">
-    <div class="container">
-        <div class="waitlist-card">
-            <h2 data-i18n="wait.title">Be among the first 100.</h2>
-            <p data-i18n="wait.sub">We're rolling out invites in waves. Drop your Telegram and email and we'll reach out.</p>
-            <form class="waitlist-form" onsubmit="return submitWaitlist(event)">
-                <input type="text" id="tg" placeholder="@your_telegram" required>
-                <input type="email" id="email" placeholder="email@example.com" required>
-                <button type="submit" class="btn btn-primary" data-i18n="wait.cta">Join waitlist</button>
-            </form>
-            <div class="waitlist-success" id="waitSuccess">
-                ✅ <span data-i18n="wait.success">You're in. We'll be in touch soon.</span>
-            </div>
-        </div>
-    </div>
+<hr class="divider">
+
+<!-- ==================== BOTTOM CTA ==================== -->
+<section class="section reveal" style="text-align:center;">
+  <h2 class="section-heading" data-ar="خلّ دبّر يدبّرها لك." data-en="Let Dabbar sort it out.">خلّ دبّر يدبّرها لك.</h2>
+  <p class="section-body" style="margin: 0 auto 2.5rem;" data-ar="انضم لأول ٥ عملاء واحصل على سعر التأسيس للأبد." data-en="Join the first 5 customers and lock in the founding price forever.">انضم لأول ٥ عملاء واحصل على سعر التأسيس للأبد.</p>
+  <a href="https://t.me/dabbar_ai" class="cta-btn" data-ar="انضم عبر تيليجرام" data-en="Join via Telegram">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.53 8.15l-1.87 8.83c-.14.63-.51.79-1.03.49l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.92 5.27-4.76c.23-.2-.05-.32-.36-.12L8.69 13.3l-2.82-.88c-.61-.19-.63-.61.13-.91l11.03-4.25c.51-.19.96.12.5.89z"/></svg>
+    <span>انضم عبر تيليجرام</span>
+  </a>
 </section>
 
-<!-- Footer -->
-<footer class="site-footer">
-    <div class="container">
-        <div class="footer-left">
-            <div class="logo">
-                <span class="logo-mark">د</span>
-                <span class="logo-text">Dabbar</span>
-            </div>
-            <div class="footer-tag" data-i18n="footer.tag">Your AI personal assistant, on Telegram.</div>
-        </div>
-        <div class="footer-right">
-            <span>© 2026 Dabbar</span>
-            <span>·</span>
-            <a href="#" data-i18n="footer.privacy">Privacy</a>
-            <span>·</span>
-            <a href="#" data-i18n="footer.terms">Terms</a>
-            <span>·</span>
-            <a href="mailto:hello@dabbar.ai">hello@dabbar.ai</a>
-        </div>
-    </div>
+<footer>
+  <p data-ar="دبّر © ٢٠٢٦ — صُنع في الإمارات 🇦🇪" data-en="Dabbar © 2026 — Made in the UAE 🇦🇪">دبّر © ٢٠٢٦ — صُنع في الإمارات 🇦🇪</p>
+  <p style="margin-top: 0.5rem;"><a href="mailto:hello@dabbar.ai">hello@dabbar.ai</a></p>
 </footer>
 
-<script src="script.js"></script>
+<script>
+  let lang = 'ar';
+
+  function toggleLang() {
+    lang = lang === 'ar' ? 'en' : 'ar';
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+    document.querySelectorAll('[data-ar]').forEach(el => {
+      const text = el.getAttribute('data-' + lang);
+      if (text === null) return;
+      const span = el.querySelector('span');
+      if (span) {
+        span.textContent = text;
+      } else {
+        el.textContent = text;
+      }
+    });
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+  }, { threshold: 0.15 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
 </body>
 </html>
