@@ -1,7 +1,4 @@
 """Seed Ayan's timetable into the database."""
-import sys
-sys.path.insert(0, '.')
-from app import app
 from models import db, ScheduleEvent
 
 # Subject colors
@@ -156,5 +153,6 @@ def seed():
 
 
 if __name__ == '__main__':
+    from app import app
     with app.app_context():
         seed()
