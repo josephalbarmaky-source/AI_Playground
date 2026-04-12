@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: dabbar-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    restart: unless-stopped
+    # Uncomment if running on NVIDIA GPU host (DGX Spark)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  bot:
+    build: .
+    container_name: dabbar-bot
+    depends_on:
+      - ollama
+    env_file:
+      - .env
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      DABBAR_DATA_DIR: /data
+    volumes:
+      - dabbar-data:/data
+    restart: unless-stopped
+
+volumes:
+  ollama-data:
+  dabbar-data:

@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from datetime import datetime
+import json
 import os
 import requests as http_requests
 from models import db, Agent, Project, Task, ActivityLog, ScheduleEvent, CalendarEvent, GroceryItem, HouseInfo, FamilyActivity
@@ -309,6 +310,46 @@ def spinner_game():
 def tools_page():
     """AI tools overview page."""
     return render_template('tools.html')
+
+
+# ==================== DABBAR LANDING PAGE PREVIEW ====================
+
+DABBAR_SITE_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'dabbar-site')
+)
+DABBAR_WAITLIST_FILE = os.path.join(os.path.dirname(__file__), 'dabbar_waitlist.jsonl')
+
+
+@app.route('/dabbar-preview')
+@app.route('/dabbar-preview/')
+def dabbar_preview():
+    """Preview the dabbar.ai landing page locally."""
+    return send_from_directory(DABBAR_SITE_DIR, 'index.html')
+
+
+@app.route('/dabbar-preview/<path:filename>')
+def dabbar_preview_static(filename):
+    """Serve static assets for the dabbar landing preview."""
+    return send_from_directory(DABBAR_SITE_DIR, filename)
+
+
+@app.route('/api/dabbar/waitlist', methods=['POST'])
+def dabbar_waitlist():
+    """Append a waitlist signup to dabbar_waitlist.jsonl."""
+    data = request.json or {}
+    tg = (data.get('tg') or '').strip()
+    email = (data.get('email') or '').strip()
+    if not tg or not email:
+        return jsonify({'error': 'tg and email are required'}), 400
+    entry = {
+        'tg': tg,
+        'email': email,
+        'at': datetime.utcnow().isoformat() + 'Z',
+        'ua': request.headers.get('User-Agent', ''),
+    }
+    with open(DABBAR_WAITLIST_FILE, 'a') as f:
+        f.write(json.dumps(entry) + '\n')
+    return jsonify({'ok': True})
 
 
 @app.route('/family')

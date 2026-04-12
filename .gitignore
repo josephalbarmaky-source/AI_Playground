@@ -6,6 +6,7 @@ __pycache__/
 .Python
 venv/
 env/
+.venv/
 *.egg-info/
 dist/
 build/
@@ -28,3 +29,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Dabbar-specific
+ai-dashboard/dabbar_waitlist.jsonl
+ai-dashboard/database.db
+dabbar-bot/.env
+dabbar-bot/data/
