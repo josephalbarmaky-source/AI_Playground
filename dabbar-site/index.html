@@ -436,11 +436,20 @@
   <p class="hero-tagline" data-ar="يدفع فواتيرك، يحجز مطاعمك، ويتابع مخالفاتك — وأنت مرتاح." data-en="Your AI personal assistant. Pays your bills, books restaurants, tracks fines — while you relax.">يدفع فواتيرك، يحجز مطاعمك، ويتابع مخالفاتك — وأنت مرتاح.</p>
 
   <div class="cta-group">
-    <a href="https://t.me/dabbar_ai" class="cta-btn" data-ar="انضم لقائمة الانتظار" data-en="Join the Waitlist">
-      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.53 8.15l-1.87 8.83c-.14.63-.51.79-1.03.49l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.92 5.27-4.76c.23-.2-.05-.32-.36-.12L8.69 13.3l-2.82-.88c-.61-.19-.63-.61.13-.91l11.03-4.25c.51-.19.96.12.5.89z"/></svg>
-      <span>انضم لقائمة الانتظار</span>
-    </a>
-    <span class="cta-note mono" data-ar="عبر تيليجرام · مجاناً للتسجيل" data-en="Via Telegram · Free to register">عبر تيليجرام · مجاناً للتسجيل</span>
+    <form id="waitlist-form" style="display:flex;flex-direction:column;gap:0.75rem;width:100%;max-width:360px;">
+      <input type="text" name="name" placeholder="اسمك / Your name"
+             style="padding:0.8rem 1rem;background:var(--card-bg);border:1px solid var(--card-border);color:var(--cream);font-family:inherit;font-size:0.9rem;border-radius:0;">
+      <input type="email" name="email" placeholder="الإيميل / Email" required
+             style="padding:0.8rem 1rem;background:var(--card-bg);border:1px solid var(--card-border);color:var(--cream);font-family:inherit;font-size:0.9rem;border-radius:0;">
+      <input type="tel" name="phone" placeholder="(اختياري) رقم الواتساب / WhatsApp (optional)"
+             style="padding:0.8rem 1rem;background:var(--card-bg);border:1px solid var(--card-border);color:var(--cream);font-family:inherit;font-size:0.9rem;border-radius:0;">
+      <button type="submit" class="cta-btn" style="width:100%;justify-content:center;">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm5.53 8.15l-1.87 8.83c-.14.63-.51.79-1.03.49l-2.85-2.1-1.37 1.32c-.15.15-.28.28-.58.28l.2-2.92 5.27-4.76c.23-.2-.05-.32-.36-.12L8.69 13.3l-2.82-.88c-.61-.19-.63-.61.13-.91l11.03-4.25c.51-.19.96.12.5.89z"/></svg>
+        <span data-ar="انضم لقائمة الانتظار" data-en="Join the Waitlist">انضم لقائمة الانتظار</span>
+      </button>
+      <div id="waitlist-msg" style="display:none;text-align:center;font-size:0.9rem;"></div>
+    </form>
+    <span class="cta-note mono" data-ar="مجاناً للتسجيل · نبلّغك لما نطلق" data-en="Free to register · We'll notify you at launch">مجاناً للتسجيل · نبلّغك لما نطلق</span>
   </div>
 </section>
 
@@ -606,6 +615,57 @@
   }, { threshold: 0.15 });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Waitlist form
+  const WAITLIST_API = ''; // Set to your server URL, e.g. https://your-server:8443/waitlist
+  const waitlistForm = document.getElementById('waitlist-form');
+  if (waitlistForm) {
+    waitlistForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      const msgEl = document.getElementById('waitlist-msg');
+      const btn = form.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      msgEl.style.display = 'none';
+
+      const data = {
+        name: form.name.value.trim(),
+        email: form.email.value.trim(),
+        phone: form.phone.value.trim(),
+      };
+
+      if (!WAITLIST_API) {
+        msgEl.textContent = lang === 'ar' ? '✅ شكراً لاهتمامك! تواصل معنا عبر تيليجرام @dabbar_ai' : '✅ Thanks for your interest! Reach us on Telegram @dabbar_ai';
+        msgEl.style.color = 'var(--gold)';
+        msgEl.style.display = 'block';
+        btn.disabled = false;
+        return;
+      }
+
+      try {
+        const resp = await fetch(WAITLIST_API, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (resp.ok) {
+          msgEl.textContent = lang === 'ar' ? '✅ تم التسجيل! بنتواصل معك قريباً.' : "✅ You're on the list! We'll reach out soon.";
+          msgEl.style.color = 'var(--gold)';
+          form.reset();
+        } else {
+          msgEl.textContent = result.error || 'Something went wrong.';
+          msgEl.style.color = '#e74c3c';
+        }
+      } catch (err) {
+        msgEl.textContent = lang === 'ar' ? '❌ خطأ في الاتصال. حاول مرة ثانية.' : '❌ Connection error. Please try again.';
+        msgEl.style.color = '#e74c3c';
+      }
+
+      msgEl.style.display = 'block';
+      btn.disabled = false;
+    });
+  }
 </script>
 
 </body>
