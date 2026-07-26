@@ -27,6 +27,17 @@ Available tools:
 - complete_task(id)              — mark a task done.
 - delete_task(id)                — remove a task.
 - web_search(query)              — search the web and return top results.
+- connect_google()               — start Google OAuth to connect Calendar + Gmail.
+- list_events(days?)             — list calendar events for the next N days (default 1).
+- create_event(summary, start, end, description?, location?) — create a calendar event. start/end are ISO 8601.
+- update_event(event_id, summary?, start?, end?, description?, location?) — modify a calendar event.
+- list_emails(max_results?, query?)  — list inbox emails. query uses Gmail search syntax.
+- read_email(email_id)           — read the full content of an email.
+- draft_email(to, subject, body) — create a draft email.
+- send_email(to, subject, body)  — send an email.
+- add_expense(amount, category, description?, currency?) — record spending. Categories: food, transport, shopping, bills, entertainment, health, education, groceries, fuel, other.
+- list_expenses(limit?, category?) — show recent expenses.
+- expense_summary(days?)         — spending summary by category for the last N days (default 30).
 
 If no tool is needed, reply with plain text (no JSON).
 Keep responses short unless the user explicitly asks for detail.

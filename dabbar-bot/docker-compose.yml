@@ -18,16 +18,41 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest-gpu
+    container_name: dabbar-whisper
+    ports:
+      - "9000:9000"
+    environment:
+      ASR_MODEL: base
+      ASR_ENGINE: openai_whisper
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
   bot:
     build: .
     container_name: dabbar-bot
     depends_on:
       - ollama
+      - whisper
     env_file:
       - .env
     environment:
       OLLAMA_HOST: http://ollama:11434
       DABBAR_DATA_DIR: /data
+      WHISPER_URL: http://whisper:9000
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET}"
+      GOOGLE_REDIRECT_URI: "${GOOGLE_REDIRECT_URI}"
+      OAUTH_SERVER_PORT: "8443"
+    ports:
+      - "8443:8443"
     volumes:
       - dabbar-data:/data
     restart: unless-stopped
